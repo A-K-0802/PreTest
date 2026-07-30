@@ -59,7 +59,7 @@ export default function LoginPage() {
               ⚡
             </div>
             <span className="font-bold text-xl tracking-tight text-white">
-              CodeForge <span className="text-xs text-indigo-400">DSA</span>
+              TestPrep <span className="text-xs text-indigo-400">DSA</span>
             </span>
           </Link>
           <h2 className="text-2xl font-bold text-slate-100">Welcome Back</h2>

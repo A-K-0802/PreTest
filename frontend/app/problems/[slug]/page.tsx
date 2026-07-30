@@ -1,15 +1,30 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Editor from '@monaco-editor/react';
 import ReactMarkdown from 'react-markdown';
 import { useIDEStore } from '@/store/useIDEStore';
-import { Play, Send, ChevronLeft, CheckCircle2, XCircle, Clock, Database } from 'lucide-react';
+import { createClient } from '@/lib/supabase';
+import { Play, Send, ChevronLeft, Lock, Database, Clock, X, LogIn } from 'lucide-react';
 
 export default function ProblemDetailPage() {
   const { language, code, setLanguage, setCode, isExecuting, setIsExecuting, activeTab, setActiveTab } = useIDEStore();
   const [output, setOutput] = useState<string | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
+  const [authActionType, setAuthActionType] = useState<'run' | 'submit'>('run');
+
+  const supabase = createClient();
+
+  useEffect(() => {
+    // Check active auth session
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setIsLoggedIn(!!session);
+    };
+    checkAuth();
+  }, []);
 
   const sampleProblem = {
     title: 'Two Sum',
@@ -33,6 +48,12 @@ You may assume that each input would have **exactly one solution**, and you may 
   };
 
   const handleRunCode = () => {
+    if (!isLoggedIn) {
+      setAuthActionType('run');
+      setShowAuthModal(true);
+      return;
+    }
+
     setIsExecuting(true);
     setOutput('Compiling and running code against sample testcases...');
     setTimeout(() => {
@@ -42,6 +63,12 @@ You may assume that each input would have **exactly one solution**, and you may 
   };
 
   const handleSubmitCode = () => {
+    if (!isLoggedIn) {
+      setAuthActionType('submit');
+      setShowAuthModal(true);
+      return;
+    }
+
     setIsExecuting(true);
     setOutput('Submitting code to Judge0 for hidden evaluation...');
     setTimeout(() => {
@@ -51,7 +78,7 @@ You may assume that each input would have **exactly one solution**, and you may 
   };
 
   return (
-    <div className="h-screen bg-slate-950 text-slate-100 flex flex-col overflow-hidden selection:bg-indigo-500 selection:text-white">
+    <div className="h-screen bg-slate-950 text-slate-100 flex flex-col overflow-hidden selection:bg-indigo-500 selection:text-white relative">
       {/* Top Navbar */}
       <header className="h-14 border-b border-slate-800 bg-slate-950 px-4 flex items-center justify-between shrink-0">
         <div className="flex items-center space-x-4">
@@ -60,7 +87,7 @@ You may assume that each input would have **exactly one solution**, and you may 
             <span>Problems</span>
           </Link>
           <span className="text-slate-700">|</span>
-          <span className="font-bold text-white text-base">{sampleProblem.title}</span>
+          <span className="font-bold text-white text-base">TestPrep — {sampleProblem.title}</span>
           <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-bold">
             {sampleProblem.difficulty}
           </span>
@@ -213,6 +240,45 @@ You may assume that each input would have **exactly one solution**, and you may 
           </div>
         </div>
       </div>
+
+      {/* Authentication Required Modal */}
+      {showAuthModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-md w-full shadow-2xl relative">
+            <button
+              onClick={() => setShowAuthModal(false)}
+              className="absolute top-4 right-4 text-slate-500 hover:text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mb-4">
+              <Lock className="w-6 h-6" />
+            </div>
+
+            <h3 className="text-xl font-bold text-white mb-2">Sign in to {authActionType === 'run' ? 'Run Code' : 'Submit Solution'}</h3>
+            <p className="text-slate-400 text-sm mb-6">
+              You must be logged in to test code against testcases, submit solutions, and save your progress to your profile.
+            </p>
+
+            <div className="flex items-center space-x-3">
+              <Link
+                href="/login"
+                className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 rounded-xl shadow-lg shadow-indigo-600/30 transition-all text-center flex items-center justify-center space-x-2 text-sm"
+              >
+                <LogIn className="w-4 h-4" />
+                <span>Sign In</span>
+              </Link>
+              <Link
+                href="/signup"
+                className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-2.5 rounded-xl border border-slate-700 transition-all text-center text-sm"
+              >
+                Create Account
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

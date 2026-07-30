@@ -11,14 +11,14 @@ export default function Home() {
               ⚡
             </div>
             <span className="font-bold text-xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-slate-400">
-              CodeForge <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">DSA</span>
+              TestPrep <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">DSA</span>
             </span>
           </div>
 
           <nav className="hidden md:flex items-center space-x-8 text-sm font-medium text-slate-300">
             <Link href="/problems" className="hover:text-indigo-400 transition-colors">Problems</Link>
             <Link href="/dashboard" className="hover:text-indigo-400 transition-colors">Dashboard</Link>
-            <Link href="/leaderboard" className="hover:text-indigo-400 transition-colors">Leaderboard</Link>
+            <Link href="/submissions" className="hover:text-indigo-400 transition-colors">Submissions</Link>
           </nav>
 
           <div className="flex items-center space-x-4">
@@ -41,7 +41,7 @@ export default function Home() {
       {/* Hero Section */}
       <main className="flex-1 max-w-7xl mx-auto px-6 pt-20 pb-16 flex flex-col items-center text-center">
         <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-semibold mb-6 animate-pulse">
-          <span>✨ Powered by Next.js 15 & Judge0 Sandboxing</span>
+          <span>✨ Welcome to TestPrep DSA Platform</span>
         </div>
 
         <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight max-w-4xl leading-tight">
@@ -63,7 +63,7 @@ export default function Home() {
             Explore Problems →
           </Link>
           <Link
-            href="/demo"
+            href="/problems/two-sum"
             className="w-full sm:w-auto text-base font-medium text-slate-300 bg-slate-900/80 hover:bg-slate-800/80 border border-slate-800 px-8 py-3.5 rounded-xl transition-all hover:text-white text-center"
           >
             Try Online IDE Demo
@@ -106,7 +106,7 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="border-t border-slate-800/80 py-8 text-center text-slate-500 text-sm">
-        <p>© 2026 CodeForge DSA Practice Platform. Built for developers by developers.</p>
+        <p>© 2026 TestPrep DSA Platform. Built for developers by developers.</p>
       </footer>
     </div>
   );

@@ -1,12 +1,14 @@
 from fastapi import APIRouter
 from app.api.v1.auth import router as auth_router
 from app.api.v1.questions import router as questions_router
+from app.api.v1.execution import router as execution_router
 
 api_router = APIRouter()
 
-# Include routers
+# Include API routers
 api_router.include_router(auth_router)
 api_router.include_router(questions_router)
+api_router.include_router(execution_router)
 
 @api_router.get("/health", tags=["Health"])
 async def health_check():
