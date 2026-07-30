@@ -1,11 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, History, CheckCircle2, XCircle, Clock, MemoryStick as Memory } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase';
+import { Terminal, ChevronLeft, History, CheckCircle2, XCircle, Clock, LogOut } from 'lucide-react';
 import { Submission, Verdict } from '@/types';
 
-const SAMPLE_SUBMISSIONS: Submission[] = [
+// Sample submissions dataset for demonstration
+const INITIAL_SUBMISSIONS: Submission[] = [
   {
     id: 'sub-1',
     user_id: 'usr-1',
@@ -44,31 +47,58 @@ const SAMPLE_SUBMISSIONS: Submission[] = [
 ];
 
 export default function SubmissionsHistoryPage() {
-  const [submissions] = useState<Submission[]>(SAMPLE_SUBMISSIONS);
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [submissions] = useState<Submission[]>(INITIAL_SUBMISSIONS);
+  const supabase = createClient();
+
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        // Redirect unauthenticated guest to login page first
+        router.push('/login?redirectedFrom=/submissions');
+      } else {
+        setLoading(false);
+      }
+    };
+    checkUser();
+  }, [router]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#0b1326] text-[#dbe2fd] flex items-center justify-center font-mono text-xs">
+        <div className="flex items-center space-x-2 text-[#10b981] animate-pulse">
+          <Terminal className="w-5 h-5" />
+          <span>Authenticating submissions access...</span>
+        </div>
+      </div>
+    );
+  }
 
   const getVerdictBadge = (verdict: Verdict) => {
     switch (verdict) {
       case 'ACCEPTED':
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold text-xs">
-            <CheckCircle2 className="w-3.5 h-3.5" /> Accepted
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-[#003824] text-[#10b981] border border-[#005236] font-mono font-bold text-[10px]">
+            <CheckCircle2 className="w-3 h-3" /> ACCEPTED
           </span>
         );
       case 'WRONG_ANSWER':
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20 font-bold text-xs">
-            <XCircle className="w-3.5 h-3.5" /> Wrong Answer
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-[#450a0a] text-[#f87171] border border-[#991b1b] font-mono font-bold text-[10px]">
+            <XCircle className="w-3 h-3" /> WRONG ANSWER
           </span>
         );
       case 'TIME_LIMIT_EXCEEDED':
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold text-xs">
-            <Clock className="w-3.5 h-3.5" /> Time Limit Exceeded
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-[#3d2a00] text-[#f59e0b] border border-[#78350f] font-mono font-bold text-[10px]">
+            <Clock className="w-3 h-3" /> TLE
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-800 text-slate-300 font-bold text-xs">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-[#171f33] text-[#dbe2fd] font-mono font-bold text-[10px]">
             {verdict}
           </span>
         );
@@ -76,55 +106,68 @@ export default function SubmissionsHistoryPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-indigo-500 selection:text-white">
-      {/* Header */}
-      <header className="border-b border-slate-800 bg-slate-950 px-6 h-16 flex items-center justify-between">
+    <div className="min-h-screen bg-[#0b1326] text-[#dbe2fd] flex flex-col font-sans selection:bg-[#10b981] selection:text-[#0b1326]">
+      {/* Top Header */}
+      <header className="border-b border-[#1f2937] bg-[#0b1326] px-6 h-16 flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <Link href="/problems" className="text-slate-400 hover:text-white flex items-center space-x-1 text-sm font-medium transition-colors">
-            <ChevronLeft className="w-4 h-4" />
-            <span>Problems</span>
+          <Link href="/" className="flex items-center space-x-2.5">
+            <div className="w-8 h-8 rounded bg-[#10b981] text-[#0b1326] flex items-center justify-center font-bold">
+              <Terminal className="w-5 h-5 stroke-[2.5]" />
+            </div>
+            <span className="font-bold text-xl text-[#dbe2fd]">
+              TestPrep <span className="text-xs text-[#10b981] font-mono">Submissions</span>
+            </span>
           </Link>
-          <span className="text-slate-700">|</span>
-          <span className="font-bold text-white text-base flex items-center gap-2">
-            <History className="w-4 h-4 text-indigo-400" />
-            Submission History
-          </span>
+        </div>
+
+        <div className="flex items-center space-x-4">
+          <Link href="/" className="text-xs font-mono text-[#bbcabf] hover:text-[#10b981] transition-colors">
+            Problemset
+          </Link>
+          <Link href="/dashboard" className="text-xs font-mono text-[#bbcabf] hover:text-[#10b981] transition-colors">
+            Dashboard
+          </Link>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="max-w-6xl mx-auto w-full px-6 py-10">
-        <h1 className="text-3xl font-extrabold tracking-tight text-white mb-2">My Submissions</h1>
-        <p className="text-slate-400 text-sm mb-8">Review your past code submissions, runtime performance, and verdicts</p>
+      <main className="max-w-[1440px] mx-auto w-full px-6 py-8">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-[#dbe2fd]">Submission History</h1>
+            <p className="text-xs font-mono text-[#bbcabf] mt-1">Review your evaluated code submissions and Judge0 execution metrics</p>
+          </div>
+        </div>
 
-        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
+        {/* High-Density Submissions Table */}
+        <div className="bg-[#131b2e] border border-[#1f2937] rounded-md overflow-hidden shadow-2xl">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-300">
-              <thead className="bg-slate-950/80 border-b border-slate-800 text-xs text-slate-400 uppercase tracking-wider">
+            <table className="w-full text-left text-xs text-[#dbe2fd]">
+              <thead className="bg-[#171f33] border-b border-[#1f2937] font-mono text-[11px] text-[#bbcabf] uppercase tracking-wider">
                 <tr>
-                  <th className="py-4 px-6">Verdict</th>
-                  <th className="py-4 px-6">Language</th>
-                  <th className="py-4 px-6">Runtime</th>
-                  <th className="py-4 px-6">Memory</th>
-                  <th className="py-4 px-6">Submitted At</th>
+                  <th className="py-3.5 px-6">Verdict</th>
+                  <th className="py-3.5 px-6">Language</th>
+                  <th className="py-3.5 px-6">Execution Time</th>
+                  <th className="py-3.5 px-6">Memory Used</th>
+                  <th className="py-3.5 px-6 text-right">Timestamp</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60 font-mono text-xs">
+              <tbody className="divide-y divide-[#1f2937]/60 font-mono">
                 {submissions.map((sub) => (
-                  <tr key={sub.id} className="hover:bg-slate-800/30 transition-colors">
+                  <tr key={sub.id} className="hover:bg-[#171f33] transition-colors">
                     <td className="py-4 px-6">
                       {getVerdictBadge(sub.verdict)}
                     </td>
-                    <td className="py-4 px-6 text-slate-200 font-semibold">
+                    <td className="py-4 px-6 text-[#dbe2fd] font-semibold">
                       {sub.language}
                     </td>
-                    <td className="py-4 px-6 text-slate-400">
+                    <td className="py-4 px-6 text-[#bbcabf]">
                       {sub.execution_time_ms ? `${sub.execution_time_ms} ms` : 'N/A'}
                     </td>
-                    <td className="py-4 px-6 text-slate-400">
+                    <td className="py-4 px-6 text-[#bbcabf]">
                       {sub.memory_kb ? `${(sub.memory_kb / 1024).toFixed(1)} MB` : 'N/A'}
                     </td>
-                    <td className="py-4 px-6 text-slate-500">
+                    <td className="py-4 px-6 text-right text-[#bbcabf]/70">
                       {new Date(sub.created_at).toLocaleString()}
                     </td>
                   </tr>

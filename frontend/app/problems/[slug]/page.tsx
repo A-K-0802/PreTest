@@ -6,19 +6,30 @@ import Editor from '@monaco-editor/react';
 import ReactMarkdown from 'react-markdown';
 import { useIDEStore } from '@/store/useIDEStore';
 import { createClient } from '@/lib/supabase';
-import { Play, Send, ChevronLeft, Lock, Database, Clock, X, LogIn } from 'lucide-react';
+import { 
+  Terminal, 
+  Play, 
+  Send, 
+  ChevronLeft, 
+  Lock, 
+  Database, 
+  Clock, 
+  X, 
+  LogIn, 
+  UserPlus,
+  CheckCircle2,
+  AlertCircle
+} from 'lucide-react';
 
 export default function ProblemDetailPage() {
   const { language, code, setLanguage, setCode, isExecuting, setIsExecuting, activeTab, setActiveTab } = useIDEStore();
   const [output, setOutput] = useState<string | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
-  const [authActionType, setAuthActionType] = useState<'run' | 'submit'>('run');
 
   const supabase = createClient();
 
   useEffect(() => {
-    // Check active auth session
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       setIsLoggedIn(!!session);
@@ -48,47 +59,40 @@ You may assume that each input would have **exactly one solution**, and you may 
   };
 
   const handleRunCode = () => {
-    if (!isLoggedIn) {
-      setAuthActionType('run');
-      setShowAuthModal(true);
-      return;
-    }
-
     setIsExecuting(true);
-    setOutput('Compiling and running code against sample testcases...');
+    setOutput('Compiling and executing code against sample test cases...');
     setTimeout(() => {
       setIsExecuting(false);
       setOutput('✅ Sample Case 1 Passed!\nInput: nums = [2,7,11,15], target = 9\nOutput: [0,1]\nExpected: [0,1]\nExecution Time: 12ms | Memory: 14.2MB');
-    }, 1500);
+    }, 1200);
   };
 
   const handleSubmitCode = () => {
     if (!isLoggedIn) {
-      setAuthActionType('submit');
       setShowAuthModal(true);
       return;
     }
 
     setIsExecuting(true);
-    setOutput('Submitting code to Judge0 for hidden evaluation...');
+    setOutput('Submitting code to Judge0 sandbox for hidden evaluation...');
     setTimeout(() => {
       setIsExecuting(false);
       setOutput('🎉 ACCEPTED\nAll 45/45 testcases passed!\nRuntime: 34ms (Beats 89.2% of Python3 submissions)\nMemory: 16.1MB (Beats 78.4% of Python3 submissions)');
-    }, 2000);
+    }, 1800);
   };
 
   return (
-    <div className="h-screen bg-slate-950 text-slate-100 flex flex-col overflow-hidden selection:bg-indigo-500 selection:text-white relative">
+    <div className="h-screen bg-[#0b1326] text-[#dbe2fd] flex flex-col overflow-hidden font-sans selection:bg-[#10b981] selection:text-[#0b1326] relative">
       {/* Top Navbar */}
-      <header className="h-14 border-b border-slate-800 bg-slate-950 px-4 flex items-center justify-between shrink-0">
+      <header className="h-14 border-b border-[#1f2937] bg-[#0b1326] px-4 flex items-center justify-between shrink-0">
         <div className="flex items-center space-x-4">
-          <Link href="/problems" className="text-slate-400 hover:text-white flex items-center space-x-1 text-sm font-medium transition-colors">
+          <Link href="/" className="text-[#bbcabf] hover:text-[#10b981] flex items-center space-x-1 text-xs font-mono font-semibold transition-colors">
             <ChevronLeft className="w-4 h-4" />
-            <span>Problems</span>
+            <span>Problemset</span>
           </Link>
-          <span className="text-slate-700">|</span>
-          <span className="font-bold text-white text-base">TestPrep — {sampleProblem.title}</span>
-          <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-bold">
+          <span className="text-[#3c4a42]">|</span>
+          <span className="font-bold text-[#dbe2fd] text-sm">TestPrep — {sampleProblem.title}</span>
+          <span className="px-2 py-0.5 rounded bg-[#003824] text-[#10b981] border border-[#005236] text-[10px] font-mono font-bold">
             {sampleProblem.difficulty}
           </span>
         </div>
@@ -98,7 +102,7 @@ You may assume that each input would have **exactly one solution**, and you may 
           <select
             value={language}
             onChange={(e) => setLanguage(e.target.value)}
-            className="bg-slate-900 border border-slate-800 rounded-lg text-xs font-semibold px-3 py-1.5 text-slate-200 focus:outline-none focus:border-indigo-500"
+            className="bg-[#131b2e] border border-[#3c4a42] rounded text-xs font-mono font-semibold px-3 py-1.5 text-[#dbe2fd] focus:outline-none focus:border-[#10b981]"
           >
             <option value="python">Python 3</option>
             <option value="cpp">C++ (GCC 13)</option>
@@ -109,16 +113,16 @@ You may assume that each input would have **exactly one solution**, and you may 
           <button
             onClick={handleRunCode}
             disabled={isExecuting}
-            className="bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 text-xs font-semibold px-4 py-1.5 rounded-lg flex items-center space-x-1.5 transition-all disabled:opacity-50"
+            className="bg-[#131b2e] hover:bg-[#171f33] border border-[#3c4a42] text-[#dbe2fd] text-xs font-mono font-bold px-4 py-1.5 rounded flex items-center space-x-1.5 transition-all disabled:opacity-50"
           >
-            <Play className="w-3.5 h-3.5 text-emerald-400 fill-emerald-400" />
-            <span>Run Code</span>
+            <Play className="w-3.5 h-3.5 text-[#10b981] fill-[#10b981]" />
+            <span>Run</span>
           </button>
 
           <button
             onClick={handleSubmitCode}
             disabled={isExecuting}
-            className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-4 py-1.5 rounded-lg shadow-lg shadow-indigo-600/30 flex items-center space-x-1.5 transition-all disabled:opacity-50"
+            className="bg-[#10b981] hover:bg-[#4edea3] text-[#0b1326] text-xs font-mono font-bold px-4 py-1.5 rounded shadow-md shadow-[#10b981]/20 flex items-center space-x-1.5 transition-all disabled:opacity-50"
           >
             <Send className="w-3.5 h-3.5" />
             <span>Submit</span>
@@ -126,53 +130,53 @@ You may assume that each input would have **exactly one solution**, and you may 
         </div>
       </header>
 
-      {/* Main Split Layout */}
+      {/* Main Split Workspace */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 overflow-hidden">
         {/* Left Panel: Problem Statement & Tabs */}
-        <div className="border-r border-slate-800 flex flex-col h-full bg-slate-950 overflow-y-auto p-6">
-          <div className="flex items-center space-x-6 border-b border-slate-800 pb-3 mb-6 text-xs font-semibold text-slate-400">
+        <div className="border-r border-[#1f2937] flex flex-col h-full bg-[#0b1326] overflow-y-auto p-6">
+          <div className="flex items-center space-x-6 border-b border-[#1f2937] pb-3 mb-6 text-xs font-mono font-semibold text-[#bbcabf]">
             <button
               onClick={() => setActiveTab('problem')}
-              className={`hover:text-white transition-colors ${activeTab === 'problem' ? 'text-indigo-400 border-b-2 border-indigo-500 pb-3 -mb-3.5' : ''}`}
+              className={`hover:text-[#10b981] transition-colors ${activeTab === 'problem' ? 'text-[#10b981] border-b-2 border-[#10b981] pb-3 -mb-3.5' : ''}`}
             >
               Description
             </button>
             <button
               onClick={() => setActiveTab('solutions')}
-              className={`hover:text-white transition-colors ${activeTab === 'solutions' ? 'text-indigo-400 border-b-2 border-indigo-500 pb-3 -mb-3.5' : ''}`}
+              className={`hover:text-[#10b981] transition-colors ${activeTab === 'solutions' ? 'text-[#10b981] border-b-2 border-[#10b981] pb-3 -mb-3.5' : ''}`}
             >
               Editorial & Solutions
             </button>
             <button
               onClick={() => setActiveTab('discussion')}
-              className={`hover:text-white transition-colors ${activeTab === 'discussion' ? 'text-indigo-400 border-b-2 border-indigo-500 pb-3 -mb-3.5' : ''}`}
+              className={`hover:text-[#10b981] transition-colors ${activeTab === 'discussion' ? 'text-[#10b981] border-b-2 border-[#10b981] pb-3 -mb-3.5' : ''}`}
             >
               Discussion
             </button>
           </div>
 
-          <div className="space-y-6 text-slate-300 text-sm">
+          <div className="space-y-6 text-[#dbe2fd] text-sm">
             <div className="prose prose-invert max-w-none">
               <ReactMarkdown>{sampleProblem.description}</ReactMarkdown>
             </div>
 
             <div>
-              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Input Format</h4>
-              <div className="p-3 bg-slate-900/60 border border-slate-800 rounded-xl text-xs font-mono">
+              <h4 className="text-[11px] font-mono font-bold text-[#10b981] uppercase tracking-wider mb-2">Input Format</h4>
+              <div className="p-3 bg-[#131b2e] border border-[#1f2937] rounded text-xs font-mono text-[#bbcabf]">
                 {sampleProblem.inputFormat}
               </div>
             </div>
 
             <div>
-              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Output Format</h4>
-              <div className="p-3 bg-slate-900/60 border border-slate-800 rounded-xl text-xs font-mono">
+              <h4 className="text-[11px] font-mono font-bold text-[#10b981] uppercase tracking-wider mb-2">Output Format</h4>
+              <div className="p-3 bg-[#131b2e] border border-[#1f2937] rounded text-xs font-mono text-[#bbcabf]">
                 {sampleProblem.outputFormat}
               </div>
             </div>
 
             <div>
-              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Constraints</h4>
-              <ul className="list-disc list-inside space-y-1 text-xs text-slate-400 font-mono bg-slate-900/40 p-3 rounded-xl border border-slate-800/80">
+              <h4 className="text-[11px] font-mono font-bold text-[#10b981] uppercase tracking-wider mb-2">Constraints</h4>
+              <ul className="list-disc list-inside space-y-1 text-xs text-[#bbcabf] font-mono bg-[#131b2e] p-3 rounded border border-[#1f2937]">
                 {sampleProblem.constraints.map((c, i) => (
                   <li key={i}>{c}</li>
                 ))}
@@ -180,17 +184,17 @@ You may assume that each input would have **exactly one solution**, and you may 
             </div>
 
             <div>
-              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Sample Testcases</h4>
+              <h4 className="text-[11px] font-mono font-bold text-[#10b981] uppercase tracking-wider mb-2">Sample Testcases</h4>
               <div className="space-y-3">
                 {sampleProblem.sampleCases.map((tc, idx) => (
-                  <div key={idx} className="p-3.5 bg-slate-900/60 border border-slate-800 rounded-xl text-xs space-y-2">
+                  <div key={idx} className="p-3.5 bg-[#131b2e] border border-[#1f2937] rounded text-xs font-mono space-y-2">
                     <div>
-                      <span className="text-slate-500 font-mono font-bold">Input: </span>
-                      <code className="text-indigo-300 bg-slate-950 px-2 py-0.5 rounded">{tc.input}</code>
+                      <span className="text-[#bbcabf] font-bold">Input: </span>
+                      <code className="text-[#4edea3] bg-[#0b1326] px-2 py-0.5 rounded border border-[#3c4a42]">{tc.input}</code>
                     </div>
                     <div>
-                      <span className="text-slate-500 font-mono font-bold">Output: </span>
-                      <code className="text-emerald-300 bg-slate-950 px-2 py-0.5 rounded">{tc.output}</code>
+                      <span className="text-[#bbcabf] font-bold">Output: </span>
+                      <code className="text-[#10b981] bg-[#0b1326] px-2 py-0.5 rounded border border-[#3c4a42]">{tc.output}</code>
                     </div>
                   </div>
                 ))}
@@ -200,7 +204,7 @@ You may assume that each input would have **exactly one solution**, and you may 
         </div>
 
         {/* Right Panel: Monaco Editor & Output Terminal */}
-        <div className="flex flex-col h-full bg-slate-900">
+        <div className="flex flex-col h-full bg-[#131b2e]">
           <div className="flex-1">
             <Editor
               height="100%"
@@ -219,59 +223,59 @@ You may assume that each input would have **exactly one solution**, and you may 
           </div>
 
           {/* Terminal / Verdict Output */}
-          <div className="h-48 border-t border-slate-800 bg-slate-950 p-4 font-mono text-xs overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2 mb-3 text-slate-400">
+          <div className="h-48 border-t border-[#1f2937] bg-[#0b1326] p-4 font-mono text-xs overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-[#1f2937] pb-2 mb-3 text-[#bbcabf]">
               <span className="font-bold flex items-center gap-2">
-                <Database className="w-3.5 h-3.5 text-indigo-400" />
-                Execution Result
+                <Database className="w-3.5 h-3.5 text-[#10b981]" />
+                Execution Output
               </span>
               {isExecuting && (
-                <span className="text-indigo-400 animate-pulse flex items-center gap-1">
-                  <Clock className="w-3 h-3" /> Running...
+                <span className="text-[#10b981] animate-pulse flex items-center gap-1">
+                  <Clock className="w-3 h-3" /> Evaluating...
                 </span>
               )}
             </div>
 
             {output ? (
-              <pre className="whitespace-pre-wrap text-slate-300 leading-relaxed">{output}</pre>
+              <pre className="whitespace-pre-wrap text-[#dbe2fd] leading-relaxed">{output}</pre>
             ) : (
-              <p className="text-slate-600">Run code or submit to view testcase execution results here.</p>
+              <p className="text-[#bbcabf]/60">Click Run to test against sample cases, or Submit for full evaluation.</p>
             )}
           </div>
         </div>
       </div>
 
-      {/* Authentication Required Modal */}
+      {/* Authentication Required Modal for Guest Users */}
       {showAuthModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-md w-full shadow-2xl relative">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#131b2e] border border-[#3c4a42] p-6 rounded-md max-w-md w-full shadow-2xl relative">
             <button
               onClick={() => setShowAuthModal(false)}
-              className="absolute top-4 right-4 text-slate-500 hover:text-white transition-colors"
+              className="absolute top-4 right-4 text-[#bbcabf] hover:text-[#dbe2fd] transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
 
-            <div className="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mb-4">
+            <div className="w-12 h-12 rounded bg-[#003824] border border-[#005236] text-[#10b981] flex items-center justify-center mb-4">
               <Lock className="w-6 h-6" />
             </div>
 
-            <h3 className="text-xl font-bold text-white mb-2">Sign in to {authActionType === 'run' ? 'Run Code' : 'Submit Solution'}</h3>
-            <p className="text-slate-400 text-sm mb-6">
-              You must be logged in to test code against testcases, submit solutions, and save your progress to your profile.
+            <h3 className="text-lg font-bold text-[#dbe2fd] font-sans mb-2">Sign in to Submit Solutions</h3>
+            <p className="text-[#bbcabf] text-xs font-mono mb-6 leading-relaxed">
+              Guest users can view problems and test code locally. To record your submission, earn rank, and save your progress to your profile, please sign in.
             </p>
 
             <div className="flex items-center space-x-3">
               <Link
                 href="/login"
-                className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 rounded-xl shadow-lg shadow-indigo-600/30 transition-all text-center flex items-center justify-center space-x-2 text-sm"
+                className="flex-1 bg-[#10b981] hover:bg-[#4edea3] text-[#0b1326] font-bold py-2.5 rounded shadow-md shadow-[#10b981]/20 transition-all text-center flex items-center justify-center space-x-2 text-xs font-mono"
               >
                 <LogIn className="w-4 h-4" />
                 <span>Sign In</span>
               </Link>
               <Link
                 href="/signup"
-                className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-2.5 rounded-xl border border-slate-700 transition-all text-center text-sm"
+                className="flex-1 bg-[#0b1326] hover:bg-[#171f33] text-[#dbe2fd] font-semibold py-2.5 rounded border border-[#3c4a42] transition-all text-center text-xs font-mono"
               >
                 Create Account
               </Link>

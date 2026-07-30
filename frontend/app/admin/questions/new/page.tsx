@@ -3,7 +3,18 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, Plus, Trash2, ShieldAlert, Check } from 'lucide-react';
+import { 
+  ChevronLeft, 
+  Plus, 
+  Trash2, 
+  Check, 
+  Lock, 
+  Eye, 
+  FileText, 
+  Code2, 
+  Sparkles,
+  Terminal
+} from 'lucide-react';
 import { Difficulty } from '@/types';
 
 export default function CreateQuestionAdminPage() {
@@ -16,9 +27,10 @@ export default function CreateQuestionAdminPage() {
   const [inputFormat, setInputFormat] = useState('');
   const [outputFormat, setOutputFormat] = useState('');
 
+  // Testcase Builder state
   const [testcases, setTestcases] = useState<Array<{ input: string; expected_output: string; is_hidden: boolean }>>([
-    { input: '', expected_output: '', is_hidden: false },
-    { input: '', expected_output: '', is_hidden: true },
+    { input: '4\n2 7 11 15\n9', expected_output: '0 1', is_hidden: false },
+    { input: '5\n3 2 4 1 9\n10', expected_output: '3 4', is_hidden: true },
   ]);
 
   const [loading, setLoading] = useState(false);
@@ -41,42 +53,52 @@ export default function CreateQuestionAdminPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setSuccessMsg('Question successfully created!');
+    setSuccessMsg('Question and testcases saved to database!');
     setTimeout(() => {
       setLoading(false);
-      router.push('/problems');
+      router.push('/admin/questions');
     }, 1500);
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-indigo-500 selection:text-white">
+    <div className="space-y-6">
       {/* Header */}
-      <header className="border-b border-slate-800 bg-slate-950 px-6 h-16 flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <Link href="/problems" className="text-slate-400 hover:text-white flex items-center space-x-1 text-sm font-medium transition-colors">
-            <ChevronLeft className="w-4 h-4" />
-            <span>Back to Problems</span>
-          </Link>
-          <span className="text-slate-700">|</span>
-          <span className="font-bold text-white text-base flex items-center gap-2">
-            <ShieldAlert className="w-4 h-4 text-indigo-400" />
-            Admin Panel — Add Question
-          </span>
-        </div>
-      </header>
-
-      {/* Main Form Container */}
-      <main className="max-w-4xl mx-auto w-full px-6 py-10">
-        {successMsg && (
-          <div className="mb-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center space-x-3 text-emerald-400 text-sm">
-            <Check className="w-5 h-5 shrink-0" />
-            <span>{successMsg}</span>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#1f2937] pb-6">
+        <div>
+          <div className="flex items-center space-x-2 text-xs font-mono text-[#bbcabf] mb-1">
+            <Link href="/admin/questions" className="hover:text-[#10b981]">Question Bank</Link>
+            <span>/</span>
+            <span className="text-[#10b981]">New Question Builder</span>
           </div>
-        )}
+          <h1 className="text-2xl font-bold text-[#dbe2fd] tracking-tight">Create New Question</h1>
+        </div>
 
-        <form onSubmit={handleSubmit} className="bg-slate-900/60 border border-slate-800 p-8 rounded-2xl space-y-6 shadow-2xl">
+        <Link
+          href="/admin/questions"
+          className="text-xs font-mono text-[#bbcabf] hover:text-[#dbe2fd] bg-[#131b2e] border border-[#3c4a42] px-3.5 py-2 rounded transition-all w-fit"
+        >
+          Cancel
+        </Link>
+      </div>
+
+      {successMsg && (
+        <div className="p-4 rounded bg-[#003824] border border-[#005236] flex items-center space-x-3 text-[#10b981] text-xs font-mono">
+          <Check className="w-4 h-4 shrink-0" />
+          <span>{successMsg}</span>
+        </div>
+      )}
+
+      {/* Main Form */}
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Section 1: Basic Information */}
+        <div className="bg-[#131b2e] border border-[#1f2937] p-6 rounded space-y-4">
+          <h3 className="text-xs font-mono font-bold text-[#10b981] uppercase tracking-wider border-b border-[#1f2937] pb-3 flex items-center gap-2">
+            <FileText className="w-4 h-4" />
+            1. Problem Metadata
+          </h3>
+
           <div>
-            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+            <label className="block text-[11px] font-mono text-[#bbcabf] uppercase tracking-wider mb-2">
               Question Title
             </label>
             <input
@@ -84,20 +106,20 @@ export default function CreateQuestionAdminPage() {
               required
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Valid Parentheses"
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-all"
+              placeholder="e.g. Two Sum"
+              className="w-full bg-[#0b1326] border border-[#3c4a42] rounded px-4 py-2.5 text-xs text-[#dbe2fd] placeholder:text-[#bbcabf]/50 focus:outline-none focus:border-[#10b981] font-mono"
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
-                Difficulty
+              <label className="block text-[11px] font-mono text-[#bbcabf] uppercase tracking-wider mb-2">
+                Difficulty Level
               </label>
               <select
                 value={difficulty}
                 onChange={(e) => setDifficulty(e.target.value as Difficulty)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 transition-all"
+                className="w-full bg-[#0b1326] border border-[#3c4a42] rounded px-4 py-2.5 text-xs text-[#dbe2fd] focus:outline-none focus:border-[#10b981] font-mono"
               >
                 <option value="EASY">Easy</option>
                 <option value="MEDIUM">Medium</option>
@@ -106,21 +128,29 @@ export default function CreateQuestionAdminPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+              <label className="block text-[11px] font-mono text-[#bbcabf] uppercase tracking-wider mb-2">
                 Tags (Comma Separated)
               </label>
               <input
                 type="text"
                 value={tags}
                 onChange={(e) => setTags(e.target.value)}
-                placeholder="String, Stack, Hash Table"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-all"
+                placeholder="Array, Hash Table, Two Pointers"
+                className="w-full bg-[#0b1326] border border-[#3c4a42] rounded px-4 py-2.5 text-xs text-[#dbe2fd] placeholder:text-[#bbcabf]/50 focus:outline-none focus:border-[#10b981] font-mono"
               />
             </div>
           </div>
+        </div>
+
+        {/* Section 2: Statement & Formats */}
+        <div className="bg-[#131b2e] border border-[#1f2937] p-6 rounded space-y-4">
+          <h3 className="text-xs font-mono font-bold text-[#10b981] uppercase tracking-wider border-b border-[#1f2937] pb-3 flex items-center gap-2">
+            <Code2 className="w-4 h-4" />
+            2. Problem Statement & Specifications
+          </h3>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+            <label className="block text-[11px] font-mono text-[#bbcabf] uppercase tracking-wider mb-2">
               Problem Description (Markdown Supported)
             </label>
             <textarea
@@ -128,132 +158,141 @@ export default function CreateQuestionAdminPage() {
               rows={6}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe the problem statement clearly..."
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-all font-mono"
+              placeholder="Given an array of integers nums and an integer target..."
+              className="w-full bg-[#0b1326] border border-[#3c4a42] rounded p-3 text-xs text-[#dbe2fd] placeholder:text-[#bbcabf]/50 focus:outline-none focus:border-[#10b981] font-mono"
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
-                Input Format
+              <label className="block text-[11px] font-mono text-[#bbcabf] uppercase tracking-wider mb-2">
+                Input Format (stdin specifications)
               </label>
               <textarea
                 required
                 rows={3}
                 value={inputFormat}
                 onChange={(e) => setInputFormat(e.target.value)}
-                placeholder="e.g. First line contains integer n..."
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-mono"
+                placeholder="Line 1: N (array length)&#10;Line 2: N space-separated integers&#10;Line 3: target integer"
+                className="w-full bg-[#0b1326] border border-[#3c4a42] rounded p-3 text-xs text-[#dbe2fd] placeholder:text-[#bbcabf]/50 focus:outline-none focus:border-[#10b981] font-mono"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
-                Output Format
+              <label className="block text-[11px] font-mono text-[#bbcabf] uppercase tracking-wider mb-2">
+                Output Format (stdout expectations)
               </label>
               <textarea
                 required
                 rows={3}
                 value={outputFormat}
                 onChange={(e) => setOutputFormat(e.target.value)}
-                placeholder="e.g. Print boolean answer..."
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-mono"
+                placeholder="Print indices separated by space"
+                className="w-full bg-[#0b1326] border border-[#3c4a42] rounded p-3 text-xs text-[#dbe2fd] placeholder:text-[#bbcabf]/50 focus:outline-none focus:border-[#10b981] font-mono"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+            <label className="block text-[11px] font-mono text-[#bbcabf] uppercase tracking-wider mb-2">
               Constraints (One per line)
             </label>
             <textarea
               rows={3}
               value={constraints}
               onChange={(e) => setConstraints(e.target.value)}
-              placeholder="1 <= n <= 10^5&#10;nums[i] >= 0"
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-mono"
+              placeholder="1 <= N <= 10^5&#10;-10^9 <= nums[i] <= 10^9"
+              className="w-full bg-[#0b1326] border border-[#3c4a42] rounded p-3 text-xs text-[#dbe2fd] placeholder:text-[#bbcabf]/50 focus:outline-none focus:border-[#10b981] font-mono"
             />
           </div>
+        </div>
 
-          {/* Testcases Section */}
-          <div className="border-t border-slate-800 pt-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-bold text-slate-100">Test Cases</h3>
-              <div className="flex items-center space-x-2">
-                <button
-                  type="button"
-                  onClick={() => addTestcase(false)}
-                  className="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1 transition-all"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Sample Case
-                </button>
-                <button
-                  type="button"
-                  onClick={() => addTestcase(true)}
-                  className="bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1 transition-all"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Hidden Case
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              {testcases.map((tc, idx) => (
-                <div key={idx} className="p-4 bg-slate-950 border border-slate-800 rounded-xl relative space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded ${tc.is_hidden ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'}`}>
-                      {tc.is_hidden ? '🔒 Hidden Testcase' : '📖 Sample Testcase'} #{idx + 1}
-                    </span>
-                    {testcases.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeTestcase(idx)}
-                        className="text-slate-500 hover:text-rose-400 transition-colors p-1"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-slate-400 mb-1">Input Stdin</label>
-                      <textarea
-                        required
-                        rows={2}
-                        value={tc.input}
-                        onChange={(e) => updateTestcase(idx, 'input', e.target.value)}
-                        placeholder="[2,7,11,15], 9"
-                        className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-100 font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-slate-400 mb-1">Expected Output</label>
-                      <textarea
-                        required
-                        rows={2}
-                        value={tc.expected_output}
-                        onChange={(e) => updateTestcase(idx, 'expected_output', e.target.value)}
-                        placeholder="[0,1]"
-                        className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-100 font-mono"
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
+        {/* Section 3: Test Case Manager */}
+        <div className="bg-[#131b2e] border border-[#1f2937] p-6 rounded space-y-4">
+          <div className="flex items-center justify-between border-b border-[#1f2937] pb-3">
+            <h3 className="text-xs font-mono font-bold text-[#10b981] uppercase tracking-wider flex items-center gap-2">
+              <Terminal className="w-4 h-4" />
+              3. Test Case Builder
+            </h3>
+            <div className="flex items-center space-x-2">
+              <button
+                type="button"
+                onClick={() => addTestcase(false)}
+                className="bg-[#0b1326] hover:bg-[#171f33] text-[#10b981] border border-[#3c4a42] text-xs font-mono font-bold px-3 py-1.5 rounded flex items-center gap-1"
+              >
+                <Plus className="w-3.5 h-3.5" /> Sample Case
+              </button>
+              <button
+                type="button"
+                onClick={() => addTestcase(true)}
+                className="bg-[#003824] hover:bg-[#005236] text-[#4edea3] border border-[#005236] text-xs font-mono font-bold px-3 py-1.5 rounded flex items-center gap-1"
+              >
+                <Plus className="w-3.5 h-3.5" /> Secret Hidden Case
+              </button>
             </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3.5 rounded-xl shadow-lg shadow-indigo-600/30 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
-          >
-            {loading ? 'Creating Question...' : 'Save Question to Database'}
-          </button>
-        </form>
-      </main>
+          <div className="space-y-4">
+            {testcases.map((tc, idx) => (
+              <div key={idx} className="p-4 bg-[#0b1326] border border-[#1f2937] rounded relative space-y-3 font-mono">
+                <div className="flex items-center justify-between">
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                    tc.is_hidden 
+                      ? 'bg-[#3d2a00] text-[#f59e0b] border-[#78350f]' 
+                      : 'bg-[#003824] text-[#10b981] border-[#005236]'
+                  }`}>
+                    {tc.is_hidden ? '🔒 Secret Hidden Testcase' : '📖 Public Sample Testcase'} #{idx + 1}
+                  </span>
+
+                  {testcases.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeTestcase(idx)}
+                      className="text-[#bbcabf] hover:text-rose-400 p-1"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] text-[#bbcabf] mb-1">Input (stdin)</label>
+                    <textarea
+                      required
+                      rows={3}
+                      value={tc.input}
+                      onChange={(e) => updateTestcase(idx, 'input', e.target.value)}
+                      placeholder="4&#10;2 7 11 15&#10;9"
+                      className="w-full bg-[#131b2e] border border-[#3c4a42] rounded p-2.5 text-xs text-[#dbe2fd]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-[#bbcabf] mb-1">Expected Output (stdout)</label>
+                    <textarea
+                      required
+                      rows={3}
+                      value={tc.expected_output}
+                      onChange={(e) => updateTestcase(idx, 'expected_output', e.target.value)}
+                      placeholder="0 1"
+                      className="w-full bg-[#131b2e] border border-[#3c4a42] rounded p-2.5 text-xs text-[#dbe2fd]"
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Submit Button */}
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-[#10b981] hover:bg-[#4edea3] text-[#0b1326] font-mono font-bold py-3.5 rounded shadow-lg shadow-[#10b981]/20 transition-all uppercase tracking-wider text-xs disabled:opacity-50"
+        >
+          {loading ? 'Saving Question to Supabase...' : 'Publish Question to Platform'}
+        </button>
+      </form>
     </div>
   );
 }
