@@ -8,7 +8,6 @@ import {
   Terminal, 
   LayoutDashboard, 
   FileText, 
-  PlusCircle, 
   MessageSquare, 
   Home, 
   LogOut, 
@@ -32,11 +31,25 @@ export default function AdminLayout({
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         router.push('/login?redirectedFrom=/admin');
+        return;
+      }
+
+      // Query public.profiles table to verify role === 'ADMIN'
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', session.user.id)
+        .single();
+
+      if (error || profile?.role !== 'ADMIN') {
+        console.warn('Access denied: User does not have ADMIN privileges in public.profiles.');
+        router.push('/');
       } else {
         setUser(session.user);
         setLoading(false);
       }
     };
+
     checkAdmin();
   }, [router]);
 
@@ -50,16 +63,16 @@ export default function AdminLayout({
       <div className="min-h-screen bg-[#0b1326] text-[#dbe2fd] flex items-center justify-center font-mono text-xs">
         <div className="flex items-center space-x-2 text-[#10b981] animate-pulse">
           <Terminal className="w-5 h-5" />
-          <span>Verifying Admin privileges...</span>
+          <span>Verifying Admin privileges in database...</span>
         </div>
       </div>
     );
   }
 
+  // Left sidebar menu items (Add Question removed as requested)
   const navItems = [
     { name: 'Overview', path: '/admin', icon: LayoutDashboard },
     { name: 'Question Bank', path: '/admin/questions', icon: FileText },
-    { name: 'Add Question', path: '/admin/questions/new', icon: PlusCircle },
     { name: 'Discussions', path: '/admin/comments', icon: MessageSquare },
   ];
 

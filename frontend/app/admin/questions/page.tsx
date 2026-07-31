@@ -1,20 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { createClient } from '@/lib/supabase';
 import { 
   Search, 
   PlusCircle, 
   Edit3, 
   Trash2, 
-  CheckCircle2, 
-  FileCode,
-  Eye,
-  SlidersHorizontal
+  Eye, 
+  Terminal
 } from 'lucide-react';
 import { Question, Difficulty } from '@/types';
 
-const ADMIN_QUESTIONS_DATA: Array<Question & { sample_count: number; hidden_count: number; is_published: boolean }> = [
+// Standard 6 baseline questions dataset for platform alignment
+const BASELINE_QUESTIONS: Array<Question & { sample_count: number; hidden_count: number; is_published: boolean }> = [
   {
     id: '1',
     title: 'Two Sum',
@@ -51,6 +51,23 @@ const ADMIN_QUESTIONS_DATA: Array<Question & { sample_count: number; hidden_coun
   },
   {
     id: '3',
+    title: 'Longest Substring Without Repeating Characters',
+    title_slug: 'longest-substring-without-repeating-characters',
+    description: 'Given a string s, find the length of the longest substring without repeating characters.',
+    difficulty: 'MEDIUM',
+    constraints: ['0 <= s.length <= 5 * 10^4'],
+    input_format: 'String s',
+    output_format: 'Maximum length',
+    sample_cases: [],
+    tags: ['Hash Table', 'String', 'Sliding Window'],
+    sample_count: 2,
+    hidden_count: 10,
+    is_published: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: '4',
     title: 'Trapping Rain Water',
     title_slug: 'trapping-rain-water',
     description: 'Given n non-negative integers representing an elevation map...',
@@ -66,15 +83,76 @@ const ADMIN_QUESTIONS_DATA: Array<Question & { sample_count: number; hidden_coun
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   },
+  {
+    id: '5',
+    title: 'Valid Parentheses',
+    title_slug: 'valid-parentheses',
+    description: 'Given a string s containing just the characters "(", ")", "{", "}", "[" and "]", determine if valid.',
+    difficulty: 'EASY',
+    constraints: ['1 <= s.length <= 10^4'],
+    input_format: 'String s',
+    output_format: 'Boolean',
+    sample_cases: [],
+    tags: ['String', 'Stack'],
+    sample_count: 2,
+    hidden_count: 6,
+    is_published: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: '6',
+    title: 'Merge K Sorted Lists',
+    title_slug: 'merge-k-sorted-lists',
+    description: 'You are given an array of k linked-lists lists, each linked-list is sorted in ascending order.',
+    difficulty: 'HARD',
+    constraints: ['0 <= k <= 10^4'],
+    input_format: 'Array of linked lists',
+    output_format: 'Merged linked list',
+    sample_cases: [],
+    tags: ['Linked List', 'Divide and Conquer', 'Heap'],
+    sample_count: 3,
+    hidden_count: 14,
+    is_published: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
 ];
 
 export default function AdminManageQuestionsPage() {
-  const [questions, setQuestions] = useState(ADMIN_QUESTIONS_DATA);
+  const [questions, setQuestions] = useState<Array<Question & { sample_count: number; hidden_count: number; is_published: boolean }>>(BASELINE_QUESTIONS);
   const [search, setSearch] = useState('');
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('ALL');
+  const [loading, setLoading] = useState(true);
 
-  const handleDeleteQuestion = (id: string, title: string) => {
+  const supabase = createClient();
+
+  useEffect(() => {
+    const fetchRealQuestions = async () => {
+      const { data, error } = await supabase
+        .from('questions')
+        .select('*, testcases(id, is_hidden)')
+        .order('created_at', { ascending: true });
+
+      if (!error && data && data.length > 0) {
+        const formatted = data.map((q: any) => ({
+          ...q,
+          sample_count: q.testcases ? q.testcases.filter((tc: any) => !tc.is_hidden).length : 2,
+          hidden_count: q.testcases ? q.testcases.filter((tc: any) => tc.is_hidden).length : 8,
+          is_published: true,
+        }));
+        setQuestions(formatted);
+      }
+      setLoading(false);
+    };
+
+    fetchRealQuestions();
+  }, []);
+
+  const handleDeleteQuestion = async (id: string, title: string) => {
     if (confirm(`Are you sure you want to delete question "${title}"? This will permanently delete its testcases and submissions.`)) {
+      // Delete from Supabase DB
+      await supabase.from('questions').delete().eq('id', id);
       setQuestions(questions.filter((q) => q.id !== id));
     }
   };
@@ -96,6 +174,17 @@ export default function AdminManageQuestionsPage() {
         return 'bg-[#450a0a] text-[#f87171] border-[#991b1b]';
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#0b1326] text-[#dbe2fd] flex items-center justify-center font-mono text-xs">
+        <div className="flex items-center space-x-2 text-[#10b981] animate-pulse">
+          <Terminal className="w-5 h-5" />
+          <span>Loading Question Bank...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

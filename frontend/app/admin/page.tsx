@@ -1,38 +1,111 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { createClient } from '@/lib/supabase';
 import { 
   FileText, 
   Users, 
   Code2, 
   CheckCircle2, 
   PlusCircle, 
-  MessageSquare, 
   ArrowUpRight,
   Activity,
-  AlertTriangle,
-  Clock
+  Terminal
 } from 'lucide-react';
 
 export default function AdminOverviewPage() {
-  // Live admin metrics state (using actual project data)
-  const [stats] = useState({
-    totalQuestions: 6,
-    easyCount: 2,
-    mediumCount: 2,
-    hardCount: 2,
-    totalLearners: 128,
-    totalSubmissions: 412,
-    passRate: '72.4%',
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    totalQuestions: 0,
+    easyCount: 0,
+    mediumCount: 0,
+    hardCount: 0,
+    totalLearners: 0,
+    totalSubmissions: 0,
+    passRate: '0.0%',
   });
 
-  const recentSubmissions = [
-    { id: '1', user: 'codemaster', problem: 'Two Sum', language: 'Python 3', verdict: 'ACCEPTED', time: '2 mins ago' },
-    { id: '2', user: 'algo_pro', problem: 'Trapping Rain Water', language: 'C++', verdict: 'TIME_LIMIT_EXCEEDED', time: '5 mins ago' },
-    { id: '3', user: 'dev_guy', problem: 'Valid Parentheses', language: 'JavaScript', verdict: 'ACCEPTED', time: '12 mins ago' },
-    { id: '4', user: 'newbie', problem: 'Add Two Numbers', language: 'Python 3', verdict: 'WRONG_ANSWER', time: '18 mins ago' },
-  ];
+  const [recentSubmissions, setRecentSubmissions] = useState<any[]>([]);
+
+  const supabase = createClient();
+
+  useEffect(() => {
+    const fetchRealAdminMetrics = async () => {
+      try {
+        // 1. Fetch real questions metrics from 'questions' table
+        const { data: questionsData, error: qErr } = await supabase
+          .from('questions')
+          .select('id, difficulty');
+
+        let totalQ = 0;
+        let easyQ = 0;
+        let medQ = 0;
+        let hardQ = 0;
+
+        if (!qErr && questionsData) {
+          totalQ = questionsData.length;
+          easyQ = questionsData.filter((q) => q.difficulty === 'EASY').length;
+          medQ = questionsData.filter((q) => q.difficulty === 'MEDIUM').length;
+          hardQ = questionsData.filter((q) => q.difficulty === 'HARD').length;
+        }
+
+        // 2. Fetch real active learners from 'profiles' table
+        const { count: learnersCount, error: pErr } = await supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true });
+
+        // 3. Fetch real submissions metrics from 'submissions' table
+        const { data: submissionsData, error: sErr } = await supabase
+          .from('submissions')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        let totalSub = 0;
+        let acceptedSub = 0;
+        let subFeed: any[] = [];
+
+        if (!sErr && submissionsData) {
+          totalSub = submissionsData.length;
+          acceptedSub = submissionsData.filter((s) => s.verdict === 'ACCEPTED').length;
+          subFeed = submissionsData.slice(0, 5); // top 5 recent submissions
+        }
+
+        const calculatedPassRate = totalSub > 0 
+          ? `${((acceptedSub / totalSub) * 100).toFixed(1)}%` 
+          : '0.0%';
+
+        setStats({
+          totalQuestions: totalQ,
+          easyCount: easyQ,
+          mediumCount: medQ,
+          hardCount: hardQ,
+          totalLearners: learnersCount || 0,
+          totalSubmissions: totalSub,
+          passRate: calculatedPassRate,
+        });
+
+        setRecentSubmissions(subFeed);
+      } catch (err) {
+        console.error('Error fetching admin metrics:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRealAdminMetrics();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#0b1326] text-[#dbe2fd] flex items-center justify-center font-mono text-xs">
+        <div className="flex items-center space-x-2 text-[#10b981] animate-pulse">
+          <Terminal className="w-5 h-5" />
+          <span>Fetching live database metrics...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -40,7 +113,7 @@ export default function AdminOverviewPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#1f2937] pb-6">
         <div>
           <h1 className="text-2xl font-bold text-[#dbe2fd] tracking-tight">Admin Control Center</h1>
-          <p className="text-xs font-mono text-[#bbcabf] mt-1">Platform overview, system metrics, and content management</p>
+          <p className="text-xs font-mono text-[#bbcabf] mt-1">Live database metrics, system health, and platform control</p>
         </div>
 
         <div className="flex items-center space-x-3">
@@ -54,7 +127,7 @@ export default function AdminOverviewPage() {
         </div>
       </div>
 
-      {/* Bento Metrics Grid */}
+      {/* Bento Metrics Grid (Real Live Supabase Counts) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-[#131b2e] border border-[#1f2937] hover:border-[#10b981] p-5 rounded transition-all group">
           <div className="flex items-center justify-between">
@@ -73,7 +146,7 @@ export default function AdminOverviewPage() {
             <Users className="w-5 h-5 text-[#10b981]/60 group-hover:text-[#10b981] transition-colors" />
           </div>
           <div className="text-3xl font-extrabold text-[#dbe2fd] font-mono mt-2">{stats.totalLearners}</div>
-          <p className="text-xs text-[#bbcabf] font-mono mt-1">Registered Engineers</p>
+          <p className="text-xs text-[#bbcabf] font-mono mt-1">Registered Profiles in DB</p>
         </div>
 
         <div className="bg-[#131b2e] border border-[#1f2937] hover:border-[#10b981] p-5 rounded transition-all group">
@@ -82,7 +155,7 @@ export default function AdminOverviewPage() {
             <Code2 className="w-5 h-5 text-[#10b981]/60 group-hover:text-[#10b981] transition-colors" />
           </div>
           <div className="text-3xl font-extrabold text-[#dbe2fd] font-mono mt-2">{stats.totalSubmissions}</div>
-          <p className="text-xs text-[#bbcabf] font-mono mt-1">Evaluated by Judge0</p>
+          <p className="text-xs text-[#bbcabf] font-mono mt-1">Evaluated Submissions</p>
         </div>
 
         <div className="bg-[#131b2e] border border-[#1f2937] hover:border-[#10b981] p-5 rounded transition-all group">
@@ -91,7 +164,7 @@ export default function AdminOverviewPage() {
             <CheckCircle2 className="w-5 h-5 text-[#10b981]/60 group-hover:text-[#10b981] transition-colors" />
           </div>
           <div className="text-3xl font-extrabold text-[#dbe2fd] font-mono mt-2">{stats.passRate}</div>
-          <p className="text-xs text-[#bbcabf] font-mono mt-1">Global Accepted Rate</p>
+          <p className="text-xs text-[#bbcabf] font-mono mt-1">Accepted Submissions %</p>
         </div>
       </div>
 
@@ -149,34 +222,42 @@ export default function AdminOverviewPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-[#dbe2fd]">
-              <thead className="bg-[#0b1326] border-b border-[#1f2937] font-mono text-[10px] text-[#bbcabf] uppercase tracking-wider">
-                <tr>
-                  <th className="py-3 px-4">Learner</th>
-                  <th className="py-3 px-4">Problem</th>
-                  <th className="py-3 px-4">Language</th>
-                  <th className="py-3 px-4">Verdict</th>
-                  <th className="py-3 px-4 text-right">Time</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#1f2937]/60 font-mono">
-                {recentSubmissions.map((sub) => (
-                  <tr key={sub.id} className="hover:bg-[#171f33] transition-colors">
-                    <td className="py-3 px-4 font-semibold text-[#dbe2fd]">{sub.user}</td>
-                    <td className="py-3 px-4 text-[#bbcabf]">{sub.problem}</td>
-                    <td className="py-3 px-4 text-[#bbcabf]">{sub.language}</td>
-                    <td className="py-3 px-4">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        sub.verdict === 'ACCEPTED' ? 'bg-[#003824] text-[#10b981] border border-[#005236]' : 'bg-[#450a0a] text-[#f87171] border border-[#991b1b]'
-                      }`}>
-                        {sub.verdict}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-right text-[#bbcabf]/70">{sub.time}</td>
+            {recentSubmissions.length === 0 ? (
+              <div className="p-8 text-center text-[#bbcabf] font-mono text-xs">
+                No live submissions recorded in database yet.
+              </div>
+            ) : (
+              <table className="w-full text-left text-xs text-[#dbe2fd]">
+                <thead className="bg-[#0b1326] border-b border-[#1f2937] font-mono text-[10px] text-[#bbcabf] uppercase tracking-wider">
+                  <tr>
+                    <th className="py-3 px-4">Language</th>
+                    <th className="py-3 px-4">Verdict</th>
+                    <th className="py-3 px-4">Runtime</th>
+                    <th className="py-3 px-4 text-right">Time</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-[#1f2937]/60 font-mono">
+                  {recentSubmissions.map((sub) => (
+                    <tr key={sub.id} className="hover:bg-[#171f33] transition-colors">
+                      <td className="py-3 px-4 font-semibold text-[#dbe2fd]">{sub.language}</td>
+                      <td className="py-3 px-4">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          sub.verdict === 'ACCEPTED' ? 'bg-[#003824] text-[#10b981] border border-[#005236]' : 'bg-[#450a0a] text-[#f87171] border border-[#991b1b]'
+                        }`}>
+                          {sub.verdict}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-[#bbcabf]">
+                        {sub.execution_time_ms ? `${sub.execution_time_ms}ms` : 'N/A'}
+                      </td>
+                      <td className="py-3 px-4 text-right text-[#bbcabf]/70">
+                        {new Date(sub.created_at).toLocaleTimeString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
 
@@ -189,18 +270,8 @@ export default function AdminOverviewPage() {
           <div className="space-y-3 font-mono text-xs">
             <div className="p-3 bg-[#0b1326] border border-[#1f2937] rounded flex items-center justify-between">
               <div>
-                <div className="font-bold text-[#dbe2fd]">Judge0 Execution Sandbox</div>
-                <div className="text-[10px] text-[#bbcabf]">Port 2358 / RapidAPI</div>
-              </div>
-              <span className="px-2 py-0.5 rounded bg-[#003824] text-[#10b981] border border-[#005236] text-[10px] font-bold">
-                ONLINE
-              </span>
-            </div>
-
-            <div className="p-3 bg-[#0b1326] border border-[#1f2937] rounded flex items-center justify-between">
-              <div>
                 <div className="font-bold text-[#dbe2fd]">Supabase PostgreSQL</div>
-                <div className="text-[10px] text-[#bbcabf]">Cloud Instance</div>
+                <div className="text-[10px] text-[#bbcabf]">Database Connection</div>
               </div>
               <span className="px-2 py-0.5 rounded bg-[#003824] text-[#10b981] border border-[#005236] text-[10px] font-bold">
                 CONNECTED
@@ -209,8 +280,18 @@ export default function AdminOverviewPage() {
 
             <div className="p-3 bg-[#0b1326] border border-[#1f2937] rounded flex items-center justify-between">
               <div>
-                <div className="font-bold text-[#dbe2fd]">FastAPI Server</div>
-                <div className="text-[10px] text-[#bbcabf]">Port 8000 (v1 API)</div>
+                <div className="font-bold text-[#dbe2fd]">Judge0 Sandbox</div>
+                <div className="text-[10px] text-[#bbcabf]">Code Execution Engine</div>
+              </div>
+              <span className="px-2 py-0.5 rounded bg-[#003824] text-[#10b981] border border-[#005236] text-[10px] font-bold">
+                ONLINE
+              </span>
+            </div>
+
+            <div className="p-3 bg-[#0b1326] border border-[#1f2937] rounded flex items-center justify-between">
+              <div>
+                <div className="font-bold text-[#dbe2fd]">FastAPI Backend</div>
+                <div className="text-[10px] text-[#bbcabf]">Port 8000 (v1 REST)</div>
               </div>
               <span className="px-2 py-0.5 rounded bg-[#003824] text-[#10b981] border border-[#005236] text-[10px] font-bold">
                 HEALTHY

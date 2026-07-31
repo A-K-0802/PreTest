@@ -4,65 +4,44 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
-import { Terminal, ChevronLeft, History, CheckCircle2, XCircle, Clock, LogOut } from 'lucide-react';
+import { Terminal, CheckCircle2, XCircle, Clock, FileCode, AlertCircle } from 'lucide-react';
 import { Submission, Verdict } from '@/types';
-
-// Sample submissions dataset for demonstration
-const INITIAL_SUBMISSIONS: Submission[] = [
-  {
-    id: 'sub-1',
-    user_id: 'usr-1',
-    question_id: 'q-1',
-    language: 'Python 3',
-    code: 'class Solution:\n    def twoSum(self, nums, target):\n        d = {}\n        for i, n in enumerate(nums):\n            if target - n in d:\n                return [d[target - n], i]\n            d[n] = i',
-    verdict: 'ACCEPTED',
-    execution_time_ms: 34,
-    memory_kb: 16100,
-    created_at: new Date(Date.now() - 3600000).toISOString(),
-  },
-  {
-    id: 'sub-2',
-    user_id: 'usr-1',
-    question_id: 'q-1',
-    language: 'Python 3',
-    code: 'class Solution:\n    def twoSum(self, nums, target):\n        return []',
-    verdict: 'WRONG_ANSWER',
-    execution_time_ms: 12,
-    memory_kb: 14200,
-    error_message: 'Failed on testcase 2: Expected [1,2], got []',
-    created_at: new Date(Date.now() - 7200000).toISOString(),
-  },
-  {
-    id: 'sub-3',
-    user_id: 'usr-1',
-    question_id: 'q-2',
-    language: 'C++',
-    code: '#include <vector>\nusing namespace std;\n...',
-    verdict: 'TIME_LIMIT_EXCEEDED',
-    execution_time_ms: 2000,
-    memory_kb: 32400,
-    error_message: 'CPU Time limit (2.0s) exceeded.',
-    created_at: new Date(Date.now() - 86400000).toISOString(),
-  },
-];
 
 export default function SubmissionsHistoryPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [submissions] = useState<Submission[]>(INITIAL_SUBMISSIONS);
+  const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const supabase = createClient();
 
   useEffect(() => {
-    const checkUser = async () => {
+    const fetchUserSubmissions = async () => {
+      // 1. Verify user session
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        // Redirect unauthenticated guest to login page first
         router.push('/login?redirectedFrom=/submissions');
-      } else {
-        setLoading(false);
+        return;
       }
+
+      // 2. Query user's real submissions from Supabase 'submissions' table
+      const { data, error: fetchError } = await supabase
+        .from('submissions')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false });
+
+      if (fetchError) {
+        console.warn('Could not fetch submissions from DB (tables may not be created yet):', fetchError.message);
+        // Graceful fallback to empty array
+        setSubmissions([]);
+      } else {
+        setSubmissions(data || []);
+      }
+
+      setLoading(false);
     };
-    checkUser();
+
+    fetchUserSubmissions();
   }, [router]);
 
   if (loading) {
@@ -70,7 +49,7 @@ export default function SubmissionsHistoryPage() {
       <div className="min-h-screen bg-[#0b1326] text-[#dbe2fd] flex items-center justify-center font-mono text-xs">
         <div className="flex items-center space-x-2 text-[#10b981] animate-pulse">
           <Terminal className="w-5 h-5" />
-          <span>Authenticating submissions access...</span>
+          <span>Fetching your submission history from Supabase...</span>
         </div>
       </div>
     );
@@ -135,45 +114,53 @@ export default function SubmissionsHistoryPage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-[#dbe2fd]">Submission History</h1>
-            <p className="text-xs font-mono text-[#bbcabf] mt-1">Review your evaluated code submissions and Judge0 execution metrics</p>
+            <p className="text-xs font-mono text-[#bbcabf] mt-1">Live evaluated code submissions from your account</p>
           </div>
         </div>
 
         {/* High-Density Submissions Table */}
         <div className="bg-[#131b2e] border border-[#1f2937] rounded-md overflow-hidden shadow-2xl">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-[#dbe2fd]">
-              <thead className="bg-[#171f33] border-b border-[#1f2937] font-mono text-[11px] text-[#bbcabf] uppercase tracking-wider">
-                <tr>
-                  <th className="py-3.5 px-6">Verdict</th>
-                  <th className="py-3.5 px-6">Language</th>
-                  <th className="py-3.5 px-6">Execution Time</th>
-                  <th className="py-3.5 px-6">Memory Used</th>
-                  <th className="py-3.5 px-6 text-right">Timestamp</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#1f2937]/60 font-mono">
-                {submissions.map((sub) => (
-                  <tr key={sub.id} className="hover:bg-[#171f33] transition-colors">
-                    <td className="py-4 px-6">
-                      {getVerdictBadge(sub.verdict)}
-                    </td>
-                    <td className="py-4 px-6 text-[#dbe2fd] font-semibold">
-                      {sub.language}
-                    </td>
-                    <td className="py-4 px-6 text-[#bbcabf]">
-                      {sub.execution_time_ms ? `${sub.execution_time_ms} ms` : 'N/A'}
-                    </td>
-                    <td className="py-4 px-6 text-[#bbcabf]">
-                      {sub.memory_kb ? `${(sub.memory_kb / 1024).toFixed(1)} MB` : 'N/A'}
-                    </td>
-                    <td className="py-4 px-6 text-right text-[#bbcabf]/70">
-                      {new Date(sub.created_at).toLocaleString()}
-                    </td>
+            {submissions.length === 0 ? (
+              <div className="p-12 text-center text-[#bbcabf] font-mono text-xs space-y-3">
+                <FileCode className="w-8 h-8 text-[#10b981]/40 mx-auto" />
+                <p className="text-[#dbe2fd] font-bold">No submissions found yet.</p>
+                <p className="text-[#bbcabf]/70">Solve a problem on the <Link href="/" className="text-[#10b981] hover:underline">Problemset</Link> and click Submit to record your first entry!</p>
+              </div>
+            ) : (
+              <table className="w-full text-left text-xs text-[#dbe2fd]">
+                <thead className="bg-[#171f33] border-b border-[#1f2937] font-mono text-[11px] text-[#bbcabf] uppercase tracking-wider">
+                  <tr>
+                    <th className="py-3.5 px-6">Verdict</th>
+                    <th className="py-3.5 px-6">Language</th>
+                    <th className="py-3.5 px-6">Execution Time</th>
+                    <th className="py-3.5 px-6">Memory Used</th>
+                    <th className="py-3.5 px-6 text-right">Timestamp</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-[#1f2937]/60 font-mono">
+                  {submissions.map((sub) => (
+                    <tr key={sub.id} className="hover:bg-[#171f33] transition-colors">
+                      <td className="py-4 px-6">
+                        {getVerdictBadge(sub.verdict)}
+                      </td>
+                      <td className="py-4 px-6 text-[#dbe2fd] font-semibold">
+                        {sub.language}
+                      </td>
+                      <td className="py-4 px-6 text-[#bbcabf]">
+                        {sub.execution_time_ms ? `${sub.execution_time_ms} ms` : 'N/A'}
+                      </td>
+                      <td className="py-4 px-6 text-[#bbcabf]">
+                        {sub.memory_kb ? `${(sub.memory_kb / 1024).toFixed(1)} MB` : 'N/A'}
+                      </td>
+                      <td className="py-4 px-6 text-right text-[#bbcabf]/70">
+                        {new Date(sub.created_at).toLocaleString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       </main>

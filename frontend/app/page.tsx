@@ -12,7 +12,9 @@ import {
   Flame,
   Award,
   LogIn,
-  UserPlus
+  UserPlus,
+  ShieldCheck,
+  LayoutDashboard
 } from 'lucide-react';
 import { Question, Difficulty } from '@/types';
 
@@ -110,22 +112,40 @@ export default function Home() {
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('ALL');
   const [selectedTag, setSelectedTag] = useState<string>('ALL');
   const [user, setUser] = useState<any>(null);
+  const [userRole, setUserRole] = useState<string>('LEARNER');
   const [loadingUser, setLoadingUser] = useState(true);
 
   const supabase = createClient();
 
   useEffect(() => {
-    const fetchUser = async () => {
+    const fetchUserAndRole = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user || null);
+      if (session?.user) {
+        setUser(session.user);
+        
+        // Query public.profiles table to get the user's role
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', session.user.id)
+          .single();
+
+        if (profile?.role) {
+          setUserRole(profile.role);
+        }
+      } else {
+        setUser(null);
+      }
       setLoadingUser(false);
     };
-    fetchUser();
+
+    fetchUserAndRole();
   }, []);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     setUser(null);
+    setUserRole('LEARNER');
   };
 
   // Compute exact real-time problem metrics dynamically from current dataset
@@ -182,6 +202,16 @@ export default function Home() {
                   <Link href="/submissions" className="hover:text-[#10b981] transition-colors">
                     Submissions
                   </Link>
+                  {/* ADMIN DASHBOARD BUTTON FOR ADMIN USERS */}
+                  {userRole === 'ADMIN' && (
+                    <Link
+                      href="/admin"
+                      className="text-[#10b981] bg-[#003824] border border-[#005236] px-3 py-1 rounded text-xs font-mono font-bold hover:bg-[#005236] transition-all flex items-center gap-1.5 shadow-md shadow-[#10b981]/10"
+                    >
+                      <ShieldCheck className="w-4 h-4" />
+                      <span>Admin Control Center</span>
+                    </Link>
+                  )}
                 </>
               )}
             </nav>
@@ -193,13 +223,16 @@ export default function Home() {
             ) : user ? (
               <div className="flex items-center space-x-4">
                 <Link
-                  href="/dashboard"
+                  href={userRole === 'ADMIN' ? '/admin' : '/dashboard'}
                   className="flex items-center space-x-2.5 bg-[#171f33] border border-[#3c4a42] hover:border-[#10b981] px-3.5 py-1.5 rounded text-xs font-medium transition-all"
                 >
                   <div className="w-6 h-6 rounded bg-[#10b981] text-[#0b1326] flex items-center justify-center font-bold font-mono">
                     {user.email?.charAt(0).toUpperCase() || 'U'}
                   </div>
                   <span className="text-[#dbe2fd] font-mono">{user.email?.split('@')[0]}</span>
+                  {userRole === 'ADMIN' && (
+                    <span className="text-[10px] bg-[#10b981] text-[#0b1326] font-bold px-1.5 py-0.5 rounded font-mono uppercase">ADMIN</span>
+                  )}
                 </Link>
                 <button
                   onClick={handleSignOut}
@@ -233,6 +266,25 @@ export default function Home() {
 
       {/* Main Workspace Container */}
       <main className="flex-1 max-w-[1440px] mx-auto px-6 py-8 w-full">
+        {/* Admin Notification Banner if User is Admin */}
+        {userRole === 'ADMIN' && (
+          <div className="mb-6 p-4 rounded bg-[#003824] border border-[#005236] flex items-center justify-between text-xs text-[#10b981] font-mono shadow-lg">
+            <div className="flex items-center space-x-3">
+              <ShieldCheck className="w-5 h-5 shrink-0" />
+              <span>
+                <strong className="text-[#dbe2fd]">Admin Privilege Detected:</strong> You have full control to create, edit, or delete questions and testcases.
+              </span>
+            </div>
+            <Link
+              href="/admin"
+              className="bg-[#10b981] hover:bg-[#4edea3] text-[#0b1326] font-bold px-3.5 py-1.5 rounded transition-all flex items-center gap-1 shrink-0 ml-4"
+            >
+              <LayoutDashboard className="w-3.5 h-3.5" />
+              <span>Open Admin Suite →</span>
+            </Link>
+          </div>
+        )}
+
         {/* Guest Notification Banner */}
         {!user && (
           <div className="mb-6 p-4 rounded bg-[#131b2e] border border-[#3c4a42] flex items-center justify-between text-xs text-[#bbcabf]">
