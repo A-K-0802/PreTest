@@ -118,8 +118,7 @@ export default function Home() {
   const supabase = createClient();
 
   useEffect(() => {
-    const fetchUserAndRole = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+    const fetchUserAndRole = async (session: any) => {
       if (session?.user) {
         setUser(session.user);
         
@@ -135,11 +134,24 @@ export default function Home() {
         }
       } else {
         setUser(null);
+        setUserRole('LEARNER');
       }
       setLoadingUser(false);
     };
 
-    fetchUserAndRole();
+    // 1. Initial session check
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      fetchUserAndRole(session);
+    });
+
+    // 2. Real-time auth listener for OAuth callback persistence
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      fetchUserAndRole(session);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const handleSignOut = async () => {
