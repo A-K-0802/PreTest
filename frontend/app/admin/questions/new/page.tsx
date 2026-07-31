@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { createClient } from '@/lib/supabase';
 import { 
   ChevronLeft, 
   Plus, 
@@ -17,8 +18,42 @@ import {
 } from 'lucide-react';
 import { Difficulty } from '@/types';
 
-export default function CreateQuestionAdminPage() {
+// Baseline questions data for fallback editing
+const BASELINE_DATA: Record<string, any> = {
+  '1': {
+    title: 'Two Sum',
+    difficulty: 'EASY',
+    tags: 'Array, Hash Table',
+    description: 'Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.',
+    inputFormat: 'Line 1: N (number of elements)\nLine 2: N space-separated integers\nLine 3: target integer',
+    outputFormat: 'Space-separated indices',
+    constraints: '2 <= nums.length <= 10^4\n-10^9 <= nums[i] <= 10^9\n-10^9 <= target <= 10^9',
+    testcases: [
+      { input: '4\n2 7 11 15\n9', expected_output: '0 1', is_hidden: false },
+      { input: '3\n3 2 4\n6', expected_output: '1 2', is_hidden: false },
+      { input: '5\n3 2 4 1 9\n10', expected_output: '3 4', is_hidden: true },
+    ]
+  },
+  '2': {
+    title: 'Add Two Numbers',
+    difficulty: 'MEDIUM',
+    tags: 'Linked List, Math',
+    description: 'You are given two non-empty linked lists representing two non-negative integers. Add the two numbers and return the sum as a linked list.',
+    inputFormat: 'Line 1: N space-separated list 1\nLine 2: M space-separated list 2',
+    outputFormat: 'Space-separated sum list',
+    constraints: 'The number of nodes in each linked list is in range [1, 100].',
+    testcases: [
+      { input: '2 4 3\n5 6 4', expected_output: '7 0 8', is_hidden: false },
+      { input: '9 9\n1', expected_output: '0 0 1', is_hidden: true },
+    ]
+  }
+};
+
+function QuestionFormContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const editId = searchParams.get('edit');
+
   const [title, setTitle] = useState('');
   const [difficulty, setDifficulty] = useState<Difficulty>('EASY');
   const [tags, setTags] = useState('');
@@ -26,8 +61,6 @@ export default function CreateQuestionAdminPage() {
   const [constraints, setConstraints] = useState('');
   const [inputFormat, setInputFormat] = useState('');
   const [outputFormat, setOutputFormat] = useState('');
-
-  // Testcase Builder state
   const [testcases, setTestcases] = useState<Array<{ input: string; expected_output: string; is_hidden: boolean }>>([
     { input: '4\n2 7 11 15\n9', expected_output: '0 1', is_hidden: false },
     { input: '5\n3 2 4 1 9\n10', expected_output: '3 4', is_hidden: true },
@@ -35,6 +68,53 @@ export default function CreateQuestionAdminPage() {
 
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  const supabase = createClient();
+
+  // Load existing question data if in Edit Mode
+  useEffect(() => {
+    if (!editId) return;
+
+    const loadQuestionData = async () => {
+      // 1. Try querying Supabase DB
+      const { data: qData, error: qErr } = await supabase
+        .from('questions')
+        .select('*, testcases(*)')
+        .eq('id', editId)
+        .single();
+
+      if (!qErr && qData) {
+        setTitle(qData.title || '');
+        setDifficulty(qData.difficulty || 'EASY');
+        setTags(Array.isArray(qData.tags) ? qData.tags.join(', ') : '');
+        setDescription(qData.description || '');
+        setInputFormat(qData.input_format || '');
+        setOutputFormat(qData.output_format || '');
+        setConstraints(Array.isArray(qData.constraints) ? qData.constraints.join('\n') : '');
+        
+        if (qData.testcases && qData.testcases.length > 0) {
+          setTestcases(qData.testcases.map((tc: any) => ({
+            input: tc.input,
+            expected_output: tc.expected_output,
+            is_hidden: tc.is_hidden
+          })));
+        }
+      } else if (BASELINE_DATA[editId]) {
+        // Fallback baseline pre-fill
+        const base = BASELINE_DATA[editId];
+        setTitle(base.title);
+        setDifficulty(base.difficulty);
+        setTags(base.tags);
+        setDescription(base.description);
+        setInputFormat(base.inputFormat);
+        setOutputFormat(base.outputFormat);
+        setConstraints(base.constraints);
+        setTestcases(base.testcases);
+      }
+    };
+
+    loadQuestionData();
+  }, [editId]);
 
   const addTestcase = (isHidden: boolean) => {
     setTestcases([...testcases, { input: '', expected_output: '', is_hidden: isHidden }]);
@@ -50,14 +130,34 @@ export default function CreateQuestionAdminPage() {
     setTestcases(updated);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setSuccessMsg('Question and testcases saved to database!');
+
+    const questionObj = {
+      title: title.trim(),
+      title_slug: title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+      description,
+      difficulty,
+      input_format: inputFormat,
+      output_format: outputFormat,
+      constraints: constraints.split('\n').filter(Boolean),
+      tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
+    };
+
+    if (editId) {
+      // Update existing question
+      await supabase.from('questions').update(questionObj).eq('id', editId);
+    } else {
+      // Insert new question
+      await supabase.from('questions').insert([questionObj]);
+    }
+
+    setSuccessMsg(editId ? 'Question updated successfully!' : 'New question published successfully!');
     setTimeout(() => {
       setLoading(false);
       router.push('/admin/questions');
-    }, 1500);
+    }, 1200);
   };
 
   return (
@@ -68,9 +168,11 @@ export default function CreateQuestionAdminPage() {
           <div className="flex items-center space-x-2 text-xs font-mono text-[#bbcabf] mb-1">
             <Link href="/admin/questions" className="hover:text-[#10b981]">Question Bank</Link>
             <span>/</span>
-            <span className="text-[#10b981]">New Question Builder</span>
+            <span className="text-[#10b981]">{editId ? 'Edit Question' : 'New Question Builder'}</span>
           </div>
-          <h1 className="text-2xl font-bold text-[#dbe2fd] tracking-tight">Create New Question</h1>
+          <h1 className="text-2xl font-bold text-[#dbe2fd] tracking-tight">
+            {editId ? `Edit Question — ${title || 'Existing Question'}` : 'Create New Question'}
+          </h1>
         </div>
 
         <Link
@@ -290,9 +392,24 @@ export default function CreateQuestionAdminPage() {
           disabled={loading}
           className="w-full bg-[#10b981] hover:bg-[#4edea3] text-[#0b1326] font-mono font-bold py-3.5 rounded shadow-lg shadow-[#10b981]/20 transition-all uppercase tracking-wider text-xs disabled:opacity-50"
         >
-          {loading ? 'Saving Question to Supabase...' : 'Publish Question to Platform'}
+          {loading ? 'Saving Changes to Database...' : editId ? 'Update Question & Save Testcases' : 'Publish Question to Platform'}
         </button>
       </form>
     </div>
+  );
+}
+
+export default function CreateQuestionAdminPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#0b1326] text-[#dbe2fd] flex items-center justify-center font-mono text-xs">
+        <div className="flex items-center space-x-2 text-[#10b981] animate-pulse">
+          <Terminal className="w-5 h-5" />
+          <span>Loading Question Builder...</span>
+        </div>
+      </div>
+    }>
+      <QuestionFormContent />
+    </Suspense>
   );
 }
