@@ -76,8 +76,10 @@ class Judge0Service:
                 "error_message": f"Unsupported language '{language}'",
                 "stdout": "",
                 "stderr": f"Language '{language}' is not supported.",
+                "compile_output": "",
                 "execution_time_ms": 0,
                 "memory_kb": 0,
+                "status_id": 13,
             }
 
         payload = {
