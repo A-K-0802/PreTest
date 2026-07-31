@@ -1,53 +1,73 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, MessageSquare, Trash2, ShieldAlert, CheckCircle2 } from 'lucide-react';
-
-const SAMPLE_COMMENTS = [
-  {
-    id: 'c-1',
-    user: 'dev_alex',
-    problem: 'Two Sum',
-    content: 'Great problem! Using a hash map achieves O(n) time complexity cleanly.',
-    created_at: new Date(Date.now() - 3600000).toISOString(),
-  },
-  {
-    id: 'c-2',
-    user: 'spam_bot',
-    problem: 'Trapping Rain Water',
-    content: 'Check out my external site for free solutions: spam-link.com',
-    created_at: new Date(Date.now() - 7200000).toISOString(),
-  },
-  {
-    id: 'c-3',
-    user: 'coder_99',
-    problem: 'Add Two Numbers',
-    content: 'Be careful with the carry bit at the end of the linked list traversal!',
-    created_at: new Date(Date.now() - 14400000).toISOString(),
-  },
-];
+import { createClient } from '@/lib/supabase';
+import { Search, MessageSquare, Trash2, Terminal } from 'lucide-react';
 
 export default function AdminDiscussionModeratorPage() {
-  const [comments, setComments] = useState(SAMPLE_COMMENTS);
+  const [comments, setComments] = useState<any[]>([]);
   const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
 
-  const handleDeleteComment = (id: string) => {
-    setComments(comments.filter((c) => c.id !== id));
+  const supabase = createClient();
+
+  useEffect(() => {
+    const fetchRealComments = async () => {
+      const { data, error } = await supabase
+        .from('comments')
+        .select('*, profiles(username), questions(title)')
+        .order('created_at', { ascending: false });
+
+      if (!error && data) {
+        setComments(data);
+      } else {
+        setComments([]);
+      }
+      setLoading(false);
+    };
+
+    fetchRealComments();
+  }, []);
+
+  const handleDeleteComment = async (id: string) => {
+    if (confirm('Are you sure you want to delete this comment?')) {
+      // Execute real deletion from Supabase DB
+      const { error } = await supabase
+        .from('comments')
+        .delete()
+        .eq('id', id);
+
+      if (!error) {
+        setComments(comments.filter((c) => c.id !== id));
+      }
+    }
   };
 
-  const filteredComments = comments.filter((c) =>
-    c.content.toLowerCase().includes(search.toLowerCase()) ||
-    c.user.toLowerCase().includes(search.toLowerCase()) ||
-    c.problem.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredComments = comments.filter((c) => {
+    const contentMatch = c.content?.toLowerCase().includes(search.toLowerCase());
+    const userMatch = c.profiles?.username?.toLowerCase().includes(search.toLowerCase());
+    const problemMatch = c.questions?.title?.toLowerCase().includes(search.toLowerCase());
+    return contentMatch || userMatch || problemMatch;
+  });
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#0b1326] text-[#dbe2fd] flex items-center justify-center font-mono text-xs">
+        <div className="flex items-center space-x-2 text-[#10b981] animate-pulse">
+          <Terminal className="w-5 h-5" />
+          <span>Fetching live discussion comments from database...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       {/* Top Header */}
       <div className="border-b border-[#1f2937] pb-6">
         <h1 className="text-2xl font-bold text-[#dbe2fd] tracking-tight">Discussion Moderator</h1>
-        <p className="text-xs font-mono text-[#bbcabf] mt-1">Review learner posts and moderate community discussion comments</p>
+        <p className="text-xs font-mono text-[#bbcabf] mt-1">Review live learner posts and moderate community discussion comments</p>
       </div>
 
       {/* Filter Bar */}
@@ -64,11 +84,13 @@ export default function AdminDiscussionModeratorPage() {
         </div>
       </div>
 
-      {/* Comments List */}
+      {/* Live Comments List */}
       <div className="space-y-4">
         {filteredComments.length === 0 ? (
-          <div className="bg-[#131b2e] border border-[#1f2937] p-12 text-center text-[#bbcabf] font-mono text-xs rounded">
-            No comments found matching your query.
+          <div className="bg-[#131b2e] border border-[#1f2937] p-12 text-center text-[#bbcabf] font-mono text-xs rounded space-y-3">
+            <MessageSquare className="w-8 h-8 text-[#10b981]/40 mx-auto" />
+            <p className="text-[#dbe2fd] font-bold">No discussion comments found in database.</p>
+            <p className="text-[#bbcabf]/70">When learners post comments on problem discussions, they will appear here for moderation.</p>
           </div>
         ) : (
           filteredComments.map((comment) => (
@@ -76,11 +98,11 @@ export default function AdminDiscussionModeratorPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                   <div className="w-7 h-7 rounded bg-[#10b981] text-[#0b1326] flex items-center justify-center font-bold text-xs">
-                    {comment.user.charAt(0).toUpperCase()}
+                    {(comment.profiles?.username || 'U').charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <span className="font-bold text-[#dbe2fd] text-xs">{comment.user}</span>
-                    <span className="text-[#bbcabf]/60 text-[10px] ml-2">on {comment.problem}</span>
+                    <span className="font-bold text-[#dbe2fd] text-xs">{comment.profiles?.username || 'Learner'}</span>
+                    <span className="text-[#bbcabf]/60 text-[10px] ml-2">on {comment.questions?.title || 'Problem'}</span>
                   </div>
                 </div>
 

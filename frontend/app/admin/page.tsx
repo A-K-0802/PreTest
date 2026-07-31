@@ -14,13 +14,18 @@ import {
   Terminal
 } from 'lucide-react';
 
+const BASELINE_QUESTIONS_COUNT = 6;
+const BASELINE_EASY_COUNT = 2;
+const BASELINE_MEDIUM_COUNT = 2;
+const BASELINE_HARD_COUNT = 2;
+
 export default function AdminOverviewPage() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
-    totalQuestions: 0,
-    easyCount: 0,
-    mediumCount: 0,
-    hardCount: 0,
+    totalQuestions: BASELINE_QUESTIONS_COUNT,
+    easyCount: BASELINE_EASY_COUNT,
+    mediumCount: BASELINE_MEDIUM_COUNT,
+    hardCount: BASELINE_HARD_COUNT,
     totalLearners: 0,
     totalSubmissions: 0,
     passRate: '0.0%',
@@ -38,12 +43,12 @@ export default function AdminOverviewPage() {
           .from('questions')
           .select('id, difficulty');
 
-        let totalQ = 0;
-        let easyQ = 0;
-        let medQ = 0;
-        let hardQ = 0;
+        let totalQ = BASELINE_QUESTIONS_COUNT;
+        let easyQ = BASELINE_EASY_COUNT;
+        let medQ = BASELINE_MEDIUM_COUNT;
+        let hardQ = BASELINE_HARD_COUNT;
 
-        if (!qErr && questionsData) {
+        if (!qErr && questionsData && questionsData.length > 0) {
           totalQ = questionsData.length;
           easyQ = questionsData.filter((q) => q.difficulty === 'EASY').length;
           medQ = questionsData.filter((q) => q.difficulty === 'MEDIUM').length;
@@ -127,7 +132,7 @@ export default function AdminOverviewPage() {
         </div>
       </div>
 
-      {/* Bento Metrics Grid (Real Live Supabase Counts) */}
+      {/* Bento Metrics Grid (Real Live Supabase Counts with Baseline Fallback) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-[#131b2e] border border-[#1f2937] hover:border-[#10b981] p-5 rounded transition-all group">
           <div className="flex items-center justify-between">
