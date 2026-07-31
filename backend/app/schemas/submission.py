@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict
-from typing import Optional, List
+from typing import Optional, List, Union
 from uuid import UUID
 from datetime import datetime
 from app.models.submission import VerdictEnum
@@ -19,7 +19,7 @@ class RunCodeResponse(BaseModel):
     memory_kb: int
 
 class SubmitCodeRequest(BaseModel):
-    question_id: UUID
+    question_id: Union[UUID, str]
     language: str
     code: str
 

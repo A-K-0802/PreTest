@@ -7,13 +7,13 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
 
     # Supabase credentials
-    SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
+    SUPABASE_URL: str = os.getenv("SUPABASE_URL", "https://ofgmfcjlwvzhkpgdkspr.supabase.co")
     SUPABASE_ANON_KEY: str = os.getenv("SUPABASE_ANON_KEY", "")
     SUPABASE_SERVICE_ROLE_KEY: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
     DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/postgres")
 
-    # Judge0 credentials
-    JUDGE0_API_URL: str = os.getenv("JUDGE0_API_URL", "http://localhost:2358")
+    # Judge0 credentials (Default to free public Judge0 CE API)
+    JUDGE0_API_URL: str = os.getenv("JUDGE0_API_URL", "https://ce.judge0.com")
     JUDGE0_API_KEY: str = os.getenv("JUDGE0_API_KEY", "")
 
     # CORS Origin list

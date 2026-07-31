@@ -8,6 +8,9 @@ api_router = APIRouter()
 # Include API routers
 api_router.include_router(auth_router)
 api_router.include_router(questions_router)
+
+# Mount execution router under both /execution and root for endpoint flexibility
+api_router.include_router(execution_router, prefix="/execution")
 api_router.include_router(execution_router)
 
 @api_router.get("/health", tags=["Health"])

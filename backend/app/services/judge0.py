@@ -4,12 +4,12 @@ import httpx
 from app.core.config import settings
 from app.models.submission import VerdictEnum
 
-# Language IDs supported by Judge0 CE
+# Standard Language IDs supported on ce.judge0.com
 LANGUAGE_MAP: Dict[str, int] = {
-    "python": 71,       # Python (3.8.1 / 3.10)
-    "cpp": 105,         # C++ (GCC 13.2.0)
-    "java": 62,         # Java (OpenJDK 13.0.1 / 17)
-    "javascript": 93,   # JavaScript (Node.js 20.9.0)
+    "python": 71,       # Python (3.8.1)
+    "cpp": 54,          # C++ (GCC 9.2.0)
+    "java": 62,         # Java (OpenJDK 13.0.1)
+    "javascript": 63,   # JavaScript (Node.js 12.14.0)
 }
 
 def encode_base64(text: Optional[str]) -> str:
@@ -97,15 +97,14 @@ class Judge0Service:
                 response = await client.post(endpoint, json=payload, headers=self.headers)
                 
                 if response.status_code not in (200, 201):
-                    # Mock sandbox fallback response for development if Judge0 local/cloud API is offline
                     return {
-                        "verdict": VerdictEnum.ACCEPTED if expected_output is None else VerdictEnum.ACCEPTED,
-                        "stdout": "Sample Output (Development Sandbox Fallback)",
-                        "stderr": "",
+                        "verdict": VerdictEnum.RUNTIME_ERROR,
+                        "stdout": "",
+                        "stderr": f"Judge0 API Returned HTTP Status {response.status_code}",
                         "compile_output": "",
-                        "execution_time_ms": 15,
-                        "memory_kb": 14200,
-                        "status_id": 3,
+                        "execution_time_ms": 0,
+                        "memory_kb": 0,
+                        "status_id": 13,
                     }
 
                 data = response.json()
@@ -122,6 +121,10 @@ class Judge0Service:
 
                 verdict = map_judge0_status(status_id)
 
+                # Cross-check stdout vs expected_output if present
+                if expected_output and stdout.strip() != expected_output.strip() and verdict == VerdictEnum.ACCEPTED:
+                    verdict = VerdictEnum.WRONG_ANSWER
+
                 return {
                     "verdict": verdict,
                     "stdout": stdout,
@@ -132,15 +135,14 @@ class Judge0Service:
                     "status_id": status_id,
                 }
         except Exception as exc:
-            # Return graceful sandbox fallback during local offline testing
             return {
-                "verdict": VerdictEnum.ACCEPTED,
-                "stdout": f"Sample Output (Mock Sandbox Engine)\nRan code successfully.",
-                "stderr": "",
+                "verdict": VerdictEnum.RUNTIME_ERROR,
+                "stdout": "",
+                "stderr": f"Failed to connect to Judge0 execution engine: {str(exc)}",
                 "compile_output": "",
-                "execution_time_ms": 12,
-                "memory_kb": 13800,
-                "status_id": 3,
+                "execution_time_ms": 0,
+                "memory_kb": 0,
+                "status_id": 13,
             }
 
 judge0_service = Judge0Service()

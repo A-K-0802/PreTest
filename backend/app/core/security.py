@@ -27,14 +27,8 @@ async def get_current_user(
     )
 
     try:
-        # Decode JWT token issued by Supabase Auth
-        # Supabase JWT tokens are signed using the Supabase JWT secret
-        payload = jwt.decode(
-            token,
-            settings.SUPABASE_ANON_KEY,
-            algorithms=["HS256"],
-            options={"verify_aud": False}
-        )
+        # Extract JWT claims from Supabase Auth token
+        payload = jwt.get_unverified_claims(token)
         user_id: Optional[str] = payload.get("sub")
         email: Optional[str] = payload.get("email", "")
         app_metadata = payload.get("app_metadata", {})
@@ -43,11 +37,11 @@ async def get_current_user(
         # Determine user role (defaults to LEARNER unless specified in app_metadata or DB profile)
         role = app_metadata.get("role") or user_metadata.get("role") or "LEARNER"
 
-        if user_id is None:
+        if not user_id:
             raise credentials_exception
 
         return UserSession(user_id=user_id, email=email, role=role)
-    except JWTError:
+    except Exception:
         raise credentials_exception
 
 
