@@ -43,8 +43,8 @@ You may assume that each input would have **exactly one solution**, and you may 
       'Only one valid answer exists.',
     ],
     sampleCases: [
-      { input: '4\n2 7 11 15\n9', output: '0 1' },
-      { input: '3\n3 2 4\n6', output: '1 2' },
+      { input: '4\n2 7 11 15\n9', output: '0 1', expected_output: '0 1' },
+      { input: '3\n3 2 4\n6', output: '1 2', expected_output: '1 2' },
     ],
     starterCode: {
       python: `import sys\n\ndef two_sum(nums, target):\n    # Write your solution here...\n    pass\n\nif __name__ == '__main__':\n    lines = sys.stdin.read().split()\n    if lines:\n        n = int(lines[0])\n        nums = [int(x) for x in lines[1:n+1]]\n        target = int(lines[n+1])\n        ans = two_sum(nums, target)\n        if ans:\n            print(f"{ans[0]} {ans[1]}")\n`,
@@ -69,8 +69,8 @@ You may assume that each input would have **exactly one solution**, and you may 
     outputFormat: 'Print `true` if valid, otherwise `false`',
     constraints: ['1 <= s.length <= 10^4'],
     sampleCases: [
-      { input: '()[]{}', output: 'true' },
-      { input: '(]', output: 'false' },
+      { input: '()[]{}', output: 'true', expected_output: 'true' },
+      { input: '(]', output: 'false', expected_output: 'false' },
     ],
     starterCode: {
       python: `import sys\n\ndef is_valid(s):\n    # Write your solution here...\n    pass\n\nif __name__ == '__main__':\n    s = sys.stdin.read().strip()\n    print("true" if is_valid(s) else "false")\n`,
@@ -104,6 +104,26 @@ export default function ProblemDetailPage({ params }: { params: Promise<{ slug: 
   const supabase = createClient();
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
+  // Helper to extract non-empty testcases securely
+  const formatTestcaseList = (rawCases: any[]) => {
+    if (!rawCases || rawCases.length === 0) return [];
+    
+    // Filter public cases first; fallback to all cases if no public filter match
+    const publicList = rawCases.filter((tc: any) => !tc.is_hidden);
+    const targetList = publicList.length > 0 ? publicList : rawCases;
+
+    return targetList.map((tc: any) => {
+      const exp = (tc.expected_output !== undefined && tc.expected_output !== null)
+        ? String(tc.expected_output)
+        : String(tc.output || '');
+      return {
+        input: String(tc.input || ''),
+        output: exp,
+        expected_output: exp,
+      };
+    });
+  };
+
   // Dynamically load problem details by slug from Supabase DB or custom_questions
   useEffect(() => {
     const loadProblemBySlug = async () => {
@@ -112,6 +132,7 @@ export default function ProblemDetailPage({ params }: { params: Promise<{ slug: 
       const customMatch = customQuestions.find((q) => q.title_slug === currentSlug || q.id === currentSlug);
 
       if (customMatch) {
+        const formattedCases = formatTestcaseList(customMatch.testcases);
         setProblem({
           id: customMatch.id,
           title: customMatch.title,
@@ -122,9 +143,7 @@ export default function ProblemDetailPage({ params }: { params: Promise<{ slug: 
           inputFormat: customMatch.input_format || 'Standard Input (stdin)',
           outputFormat: customMatch.output_format || 'Standard Output (stdout)',
           constraints: customMatch.constraints || [],
-          sampleCases: customMatch.testcases && customMatch.testcases.length > 0 
-            ? customMatch.testcases.filter((tc: any) => !tc.is_hidden)
-            : [{ input: '4\n2 7 11 15\n9', output: '0 1' }],
+          sampleCases: formattedCases.length > 0 ? formattedCases : [{ input: '4\n2 7 11 15\n9', output: '0 1', expected_output: '0 1' }],
           starterCode: {
             python: `import sys\n\ndef solve():\n    # Write your solution for ${customMatch.title} here...\n    pass\n\nif __name__ == '__main__':\n    solve()`,
             cpp: `#include <iostream>\nusing namespace std;\n\nint main() {\n    // Write your solution for ${customMatch.title} here...\n    return 0;\n}`
@@ -142,10 +161,7 @@ export default function ProblemDetailPage({ params }: { params: Promise<{ slug: 
         .single();
 
       if (!error && dbQuestion) {
-        const publicCases = dbQuestion.testcases 
-          ? dbQuestion.testcases.filter((tc: any) => !tc.is_hidden).map((tc: any) => ({ input: tc.input, output: tc.expected_output }))
-          : [{ input: '4\n2 7 11 15\n9', output: '0 1' }];
-
+        const formattedCases = formatTestcaseList(dbQuestion.testcases);
         setProblem({
           id: dbQuestion.id,
           title: dbQuestion.title,
@@ -156,7 +172,7 @@ export default function ProblemDetailPage({ params }: { params: Promise<{ slug: 
           inputFormat: dbQuestion.input_format || 'Standard Input (stdin)',
           outputFormat: dbQuestion.output_format || 'Standard Output (stdout)',
           constraints: dbQuestion.constraints || [],
-          sampleCases: publicCases.length > 0 ? publicCases : [{ input: '4\n2 7 11 15\n9', output: '0 1' }],
+          sampleCases: formattedCases.length > 0 ? formattedCases : [{ input: '4\n2 7 11 15\n9', output: '0 1', expected_output: '0 1' }],
           starterCode: {
             python: `import sys\n\ndef solve():\n    # Write your solution for ${dbQuestion.title} here...\n    pass\n\nif __name__ == '__main__':\n    solve()`,
             cpp: `#include <iostream>\nusing namespace std;\n\nint main() {\n    // Write your solution for ${dbQuestion.title} here...\n    return 0;\n}`
@@ -221,7 +237,11 @@ export default function ProblemDetailPage({ params }: { params: Promise<{ slug: 
 
     const sampleCase = problem.sampleCases && problem.sampleCases.length > 0 
       ? problem.sampleCases[0] 
-      : { input: '', output: '' };
+      : { input: '', output: '', expected_output: '' };
+
+    const expectedStr = (sampleCase.expected_output !== undefined && sampleCase.expected_output !== null)
+      ? String(sampleCase.expected_output)
+      : String(sampleCase.output || '');
 
     try {
       const response = await fetch(`${API_URL}/execution/run`, {
@@ -232,7 +252,7 @@ export default function ProblemDetailPage({ params }: { params: Promise<{ slug: 
           language: language,
           stdin: sampleCase.input,
           input: sampleCase.input,
-          expected_output: sampleCase.output,
+          expected_output: expectedStr,
         }),
       });
 
@@ -244,7 +264,7 @@ export default function ProblemDetailPage({ params }: { params: Promise<{ slug: 
       setIsExecuting(false);
 
       const actualStdout = (resData.stdout || '').trim();
-      const expectedStdout = (sampleCase.output || '').trim();
+      const expectedStdout = expectedStr.trim();
 
       if (actualStdout === expectedStdout) {
         setOutput(`✅ TESTCASE PASSED\n\nInput:\n${sampleCase.input}\n\nYour Output:\n${actualStdout || '(Empty Output)'}\n\nExpected Output:\n${expectedStdout}\n\nExecution Time: ${resData.execution_time_ms || 12}ms | Memory: ${resData.memory_kb ? (resData.memory_kb / 1024).toFixed(1) : 14.2}MB`);
@@ -454,7 +474,7 @@ export default function ProblemDetailPage({ params }: { params: Promise<{ slug: 
                       </div>
                       <div>
                         <span className="text-[#bbcabf] font-bold">Output: </span>
-                        <code className="text-[#10b981] bg-[#0b1326] px-2 py-0.5 rounded border border-[#3c4a42]">{tc.output}</code>
+                        <code className="text-[#10b981] bg-[#0b1326] px-2 py-0.5 rounded border border-[#3c4a42]">{tc.output || tc.expected_output || ''}</code>
                       </div>
                     </div>
                   ))}
