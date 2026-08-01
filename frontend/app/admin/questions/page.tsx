@@ -120,46 +120,92 @@ const BASELINE_QUESTIONS: Array<Question & { sample_count: number; hidden_count:
 ];
 
 export default function AdminManageQuestionsPage() {
-  const [questions, setQuestions] = useState<Array<Question & { sample_count: number; hidden_count: number; is_published: boolean }>>(BASELINE_QUESTIONS);
+  const [questions, setQuestions] = useState<Array<Question & { sample_count: number; hidden_count: number; is_published: boolean }>>([]);
   const [search, setSearch] = useState('');
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('ALL');
   const [loading, setLoading] = useState(true);
 
   const supabase = createClient();
 
+  // Load questions from Supabase + custom_questions, minus deleted_question_ids
+  const loadAllQuestions = async () => {
+    setLoading(true);
+    const deletedIds: string[] = JSON.parse(localStorage.getItem('deleted_question_ids') || '[]');
+    const customQuestions: any[] = JSON.parse(localStorage.getItem('custom_questions') || '[]');
+
+    let baseList = [...BASELINE_QUESTIONS];
+
+    // Try fetching from Supabase DB
+    const { data: dbData, error } = await supabase
+      .from('questions')
+      .select('*, testcases(id, is_hidden)')
+      .order('created_at', { ascending: true });
+
+    if (!error && dbData && dbData.length > 0) {
+      const dbFormatted = dbData.map((q: any) => ({
+        ...q,
+        sample_count: q.testcases ? q.testcases.filter((tc: any) => !tc.is_hidden).length : 2,
+        hidden_count: q.testcases ? q.testcases.filter((tc: any) => tc.is_hidden).length : 8,
+        is_published: true,
+      }));
+
+      // Merge DB questions with base list avoiding duplicate IDs/slugs
+      const dbSlugs = new Set(dbFormatted.map((q: any) => q.title_slug));
+      baseList = [...dbFormatted, ...baseList.filter((q) => !dbSlugs.has(q.title_slug))];
+    }
+
+    // Merge custom created questions
+    if (customQuestions.length > 0) {
+      const existingIds = new Set(baseList.map((q) => q.id));
+      customQuestions.forEach((cq) => {
+        if (!existingIds.has(cq.id)) {
+          baseList.push(cq);
+        }
+      });
+    }
+
+    // Filter out deleted IDs permanently
+    const activeQuestions = baseList.filter((q) => !deletedIds.includes(q.id));
+    setQuestions(activeQuestions);
+    setLoading(false);
+  };
+
   useEffect(() => {
-    const fetchRealQuestions = async () => {
-      const { data, error } = await supabase
-        .from('questions')
-        .select('*, testcases(id, is_hidden)')
-        .order('created_at', { ascending: true });
-
-      if (!error && data && data.length > 0) {
-        const formatted = data.map((q: any) => ({
-          ...q,
-          sample_count: q.testcases ? q.testcases.filter((tc: any) => !tc.is_hidden).length : 2,
-          hidden_count: q.testcases ? q.testcases.filter((tc: any) => tc.is_hidden).length : 8,
-          is_published: true,
-        }));
-        setQuestions(formatted);
-      }
-      setLoading(false);
-    };
-
-    fetchRealQuestions();
+    loadAllQuestions();
   }, []);
 
   const handleDeleteQuestion = async (id: string, title: string) => {
     if (confirm(`Are you sure you want to delete question "${title}"? This will permanently delete its testcases and submissions.`)) {
-      // Delete from Supabase DB
-      await supabase.from('questions').delete().eq('id', id);
-      setQuestions(questions.filter((q) => q.id !== id));
+      // 1. Delete associated child rows in Supabase if present
+      try {
+        await supabase.from('testcases').delete().eq('question_id', id);
+        await supabase.from('submissions').delete().eq('question_id', id);
+        await supabase.from('comments').delete().eq('question_id', id);
+        await supabase.from('questions').delete().eq('id', id);
+      } catch (err) {
+        console.warn('Supabase cascade delete notice:', err);
+      }
+
+      // 2. Persist deleted ID in localStorage so deletion survives reloads
+      const deletedIds: string[] = JSON.parse(localStorage.getItem('deleted_question_ids') || '[]');
+      if (!deletedIds.includes(id)) {
+        deletedIds.push(id);
+        localStorage.setItem('deleted_question_ids', JSON.stringify(deletedIds));
+      }
+
+      // 3. Remove from custom_questions if it was a locally created question
+      const customQuestions: any[] = JSON.parse(localStorage.getItem('custom_questions') || '[]');
+      const updatedCustom = customQuestions.filter((q) => q.id !== id);
+      localStorage.setItem('custom_questions', JSON.stringify(updatedCustom));
+
+      // 4. Update React state immediately
+      setQuestions((prev) => prev.filter((q) => q.id !== id));
     }
   };
 
   const filteredQuestions = questions.filter((q) => {
     const matchesSearch = q.title.toLowerCase().includes(search.toLowerCase()) ||
-      q.tags.some((t) => t.toLowerCase().includes(search.toLowerCase()));
+      (q.tags && q.tags.some((t) => t.toLowerCase().includes(search.toLowerCase())));
     const matchesDiff = selectedDifficulty === 'ALL' || q.difficulty === selectedDifficulty;
     return matchesSearch && matchesDiff;
   });
@@ -250,59 +296,67 @@ export default function AdminManageQuestionsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#1f2937]/60 font-mono">
-              {filteredQuestions.map((q) => (
-                <tr key={q.id} className="hover:bg-[#171f33] transition-colors">
-                  <td className="py-4 px-6">
-                    <div className="font-bold text-[#dbe2fd]">{q.title}</div>
-                    <div className="text-[10px] text-[#bbcabf]/60">/problems/{q.title_slug}</div>
-                  </td>
-                  <td className="py-4 px-6">
-                    <span className={`inline-flex px-2 py-0.5 rounded border text-[10px] font-bold ${getDifficultyBadge(q.difficulty)}`}>
-                      {q.difficulty}
-                    </span>
-                  </td>
-                  <td className="py-4 px-6">
-                    <div className="flex flex-wrap gap-1">
-                      {q.tags.map((t) => (
-                        <span key={t} className="px-1.5 py-0.5 rounded bg-[#0b1326] text-[#bbcabf] border border-[#3c4a42] text-[10px]">
-                          {t}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="py-4 px-6 text-[#bbcabf]">
-                    <span className="text-[#10b981] font-bold">{q.sample_count} Public</span> · <span>{q.hidden_count} Hidden</span>
-                  </td>
-                  <td className="py-4 px-6">
-                    <span className="px-2 py-0.5 rounded bg-[#003824] text-[#10b981] border border-[#005236] text-[10px] font-bold">
-                      PUBLISHED
-                    </span>
-                  </td>
-                  <td className="py-4 px-6 text-right space-x-2">
-                    <Link
-                      href={`/problems/${q.title_slug}`}
-                      className="p-1.5 rounded bg-[#0b1326] hover:bg-[#171f33] text-[#bbcabf] hover:text-[#10b981] border border-[#3c4a42] inline-flex items-center"
-                      title="Preview Problem"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                    </Link>
-                    <Link
-                      href={`/admin/questions/new?edit=${q.id}`}
-                      className="p-1.5 rounded bg-[#0b1326] hover:bg-[#171f33] text-[#bbcabf] hover:text-[#10b981] border border-[#3c4a42] inline-flex items-center"
-                      title="Edit Question"
-                    >
-                      <Edit3 className="w-3.5 h-3.5" />
-                    </Link>
-                    <button
-                      onClick={() => handleDeleteQuestion(q.id, q.title)}
-                      className="p-1.5 rounded bg-[#0b1326] hover:bg-[#450a0a] text-[#bbcabf] hover:text-[#f87171] border border-[#3c4a42] inline-flex items-center transition-colors"
-                      title="Delete Question"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+              {filteredQuestions.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-[#bbcabf]">
+                    No questions found matching your filter.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filteredQuestions.map((q) => (
+                  <tr key={q.id} className="hover:bg-[#171f33] transition-colors">
+                    <td className="py-4 px-6">
+                      <div className="font-bold text-[#dbe2fd]">{q.title}</div>
+                      <div className="text-[10px] text-[#bbcabf]/60">/problems/{q.title_slug}</div>
+                    </td>
+                    <td className="py-4 px-6">
+                      <span className={`inline-flex px-2 py-0.5 rounded border text-[10px] font-bold ${getDifficultyBadge(q.difficulty)}`}>
+                        {q.difficulty}
+                      </span>
+                    </td>
+                    <td className="py-4 px-6">
+                      <div className="flex flex-wrap gap-1">
+                        {q.tags && q.tags.map((t) => (
+                          <span key={t} className="px-1.5 py-0.5 rounded bg-[#0b1326] text-[#bbcabf] border border-[#3c4a42] text-[10px]">
+                            {t}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="py-4 px-6 text-[#bbcabf]">
+                      <span className="text-[#10b981] font-bold">{q.sample_count || 2} Public</span> · <span>{q.hidden_count || 8} Hidden</span>
+                    </td>
+                    <td className="py-4 px-6">
+                      <span className="px-2 py-0.5 rounded bg-[#003824] text-[#10b981] border border-[#005236] text-[10px] font-bold">
+                        PUBLISHED
+                      </span>
+                    </td>
+                    <td className="py-4 px-6 text-right space-x-2">
+                      <Link
+                        href={`/problems/${q.title_slug}`}
+                        className="p-1.5 rounded bg-[#0b1326] hover:bg-[#171f33] text-[#bbcabf] hover:text-[#10b981] border border-[#3c4a42] inline-flex items-center"
+                        title="Preview Problem"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                      </Link>
+                      <Link
+                        href={`/admin/questions/new?edit=${q.id}`}
+                        className="p-1.5 rounded bg-[#0b1326] hover:bg-[#171f33] text-[#bbcabf] hover:text-[#10b981] border border-[#3c4a42] inline-flex items-center"
+                        title="Edit Question"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </Link>
+                      <button
+                        onClick={() => handleDeleteQuestion(q.id, q.title)}
+                        className="p-1.5 rounded bg-[#0b1326] hover:bg-[#450a0a] text-[#bbcabf] hover:text-[#f87171] border border-[#3c4a42] inline-flex items-center transition-colors"
+                        title="Delete Question"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
