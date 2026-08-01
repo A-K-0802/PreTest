@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { Question, Difficulty } from '@/types';
 
-// Standard 6 baseline questions dataset for platform alignment
+// Standard baseline questions catalog fallback
 const BASELINE_QUESTIONS: Array<Question & { sample_count: number; hidden_count: number; is_published: boolean }> = [
   {
     id: '1',
@@ -27,7 +27,7 @@ const BASELINE_QUESTIONS: Array<Question & { sample_count: number; hidden_count:
     sample_cases: [],
     tags: ['Array', 'Hash Table'],
     sample_count: 2,
-    hidden_count: 8,
+    hidden_count: 1,
     is_published: true,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -43,8 +43,8 @@ const BASELINE_QUESTIONS: Array<Question & { sample_count: number; hidden_count:
     output_format: 'Sum list',
     sample_cases: [],
     tags: ['Linked List', 'Math'],
-    sample_count: 2,
-    hidden_count: 12,
+    sample_count: 1,
+    hidden_count: 1,
     is_published: true,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -60,8 +60,8 @@ const BASELINE_QUESTIONS: Array<Question & { sample_count: number; hidden_count:
     output_format: 'Maximum length',
     sample_cases: [],
     tags: ['Hash Table', 'String', 'Sliding Window'],
-    sample_count: 2,
-    hidden_count: 10,
+    sample_count: 1,
+    hidden_count: 1,
     is_published: true,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -77,8 +77,8 @@ const BASELINE_QUESTIONS: Array<Question & { sample_count: number; hidden_count:
     output_format: 'Trapped volume',
     sample_cases: [],
     tags: ['Array', 'Two Pointers', 'Dynamic Programming'],
-    sample_count: 3,
-    hidden_count: 15,
+    sample_count: 1,
+    hidden_count: 1,
     is_published: true,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -95,7 +95,7 @@ const BASELINE_QUESTIONS: Array<Question & { sample_count: number; hidden_count:
     sample_cases: [],
     tags: ['String', 'Stack'],
     sample_count: 2,
-    hidden_count: 6,
+    hidden_count: 0,
     is_published: true,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -111,8 +111,8 @@ const BASELINE_QUESTIONS: Array<Question & { sample_count: number; hidden_count:
     output_format: 'Merged linked list',
     sample_cases: [],
     tags: ['Linked List', 'Divide and Conquer', 'Heap'],
-    sample_count: 3,
-    hidden_count: 14,
+    sample_count: 1,
+    hidden_count: 1,
     is_published: true,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -142,12 +142,16 @@ export default function AdminManageQuestionsPage() {
       .order('created_at', { ascending: true });
 
     if (!error && dbData && dbData.length > 0) {
-      const dbFormatted = dbData.map((q: any) => ({
-        ...q,
-        sample_count: q.testcases ? q.testcases.filter((tc: any) => !tc.is_hidden).length : 2,
-        hidden_count: q.testcases ? q.testcases.filter((tc: any) => tc.is_hidden).length : 8,
-        is_published: true,
-      }));
+      const dbFormatted = dbData.map((q: any) => {
+        const publicCount = q.testcases ? q.testcases.filter((tc: any) => !tc.is_hidden).length : 0;
+        const hiddenCount = q.testcases ? q.testcases.filter((tc: any) => tc.is_hidden).length : 0;
+        return {
+          ...q,
+          sample_count: publicCount,
+          hidden_count: hiddenCount,
+          is_published: true,
+        };
+      });
 
       // Merge DB questions with base list avoiding duplicate IDs/slugs
       const dbSlugs = new Set(dbFormatted.map((q: any) => q.title_slug));
@@ -158,8 +162,20 @@ export default function AdminManageQuestionsPage() {
     if (customQuestions.length > 0) {
       const existingIds = new Set(baseList.map((q) => q.id));
       customQuestions.forEach((cq) => {
+        const publicCount = cq.testcases ? cq.testcases.filter((tc: any) => !tc.is_hidden).length : (cq.sample_count ?? 0);
+        const hiddenCount = cq.testcases ? cq.testcases.filter((tc: any) => tc.is_hidden).length : (cq.hidden_count ?? 0);
+        const formattedCq = {
+          ...cq,
+          sample_count: publicCount,
+          hidden_count: hiddenCount,
+        };
+
         if (!existingIds.has(cq.id)) {
-          baseList.push(cq);
+          baseList.push(formattedCq);
+        } else {
+          // Replace matching question with updated counts
+          const idx = baseList.findIndex((q) => q.id === cq.id);
+          if (idx >= 0) baseList[idx] = formattedCq;
         }
       });
     }
@@ -193,91 +209,86 @@ export default function AdminManageQuestionsPage() {
         localStorage.setItem('deleted_question_ids', JSON.stringify(deletedIds));
       }
 
-      // 3. Remove from custom_questions if it was a locally created question
+      // 3. Remove from custom_questions
       const customQuestions: any[] = JSON.parse(localStorage.getItem('custom_questions') || '[]');
       const updatedCustom = customQuestions.filter((q) => q.id !== id);
       localStorage.setItem('custom_questions', JSON.stringify(updatedCustom));
 
-      // 4. Update React state immediately
-      setQuestions((prev) => prev.filter((q) => q.id !== id));
+      // Reload view
+      loadAllQuestions();
     }
   };
 
   const filteredQuestions = questions.filter((q) => {
-    const matchesSearch = q.title.toLowerCase().includes(search.toLowerCase()) ||
+    const matchesSearch = 
+      q.title.toLowerCase().includes(search.toLowerCase()) ||
+      q.title_slug.toLowerCase().includes(search.toLowerCase()) ||
       (q.tags && q.tags.some((t) => t.toLowerCase().includes(search.toLowerCase())));
-    const matchesDiff = selectedDifficulty === 'ALL' || q.difficulty === selectedDifficulty;
-    return matchesSearch && matchesDiff;
+
+    const matchesDifficulty = selectedDifficulty === 'ALL' || q.difficulty === selectedDifficulty;
+
+    return matchesSearch && matchesDifficulty;
   });
 
-  const getDifficultyBadge = (difficulty: Difficulty) => {
-    switch (difficulty) {
+  const getDifficultyBadge = (diff: Difficulty) => {
+    switch (diff) {
       case 'EASY':
         return 'bg-[#003824] text-[#10b981] border-[#005236]';
       case 'MEDIUM':
         return 'bg-[#3d2a00] text-[#f59e0b] border-[#78350f]';
       case 'HARD':
-        return 'bg-[#450a0a] text-[#f87171] border-[#991b1b]';
+        return 'bg-[#3b0914] text-[#f87171] border-[#7f1d1d]';
+      default:
+        return 'bg-[#1f2937] text-[#bbcabf] border-[#3c4a42]';
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#0b1326] text-[#dbe2fd] flex items-center justify-center font-mono text-xs">
-        <div className="flex items-center space-x-2 text-[#10b981] animate-pulse">
-          <Terminal className="w-5 h-5" />
-          <span>Loading Question Bank...</span>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
-      {/* Top Header */}
+      {/* Header Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#1f2937] pb-6">
         <div>
-          <h1 className="text-2xl font-bold text-[#dbe2fd] tracking-tight">Question Bank</h1>
-          <p className="text-xs font-mono text-[#bbcabf] mt-1">Manage problem statements, tags, difficulty, and testcases</p>
+          <h1 className="text-2xl font-bold text-[#dbe2fd] tracking-tight">Question Bank Management</h1>
+          <p className="text-xs font-mono text-[#bbcabf] mt-1">
+            Create, edit, and configure problems and testcase suites.
+          </p>
         </div>
 
         <Link
           href="/admin/questions/new"
-          className="bg-[#10b981] hover:bg-[#4edea3] text-[#0b1326] font-mono font-bold text-xs px-4 py-2.5 rounded shadow-md shadow-[#10b981]/20 transition-all flex items-center space-x-2 w-fit"
+          className="bg-[#10b981] hover:bg-[#4edea3] text-[#0b1326] font-mono font-bold text-xs px-4 py-2.5 rounded shadow-lg shadow-[#10b981]/20 flex items-center space-x-2 transition-all w-fit"
         >
           <PlusCircle className="w-4 h-4" />
-          <span>Add New Question</span>
+          <span>+ Create New Question</span>
         </Link>
       </div>
 
-      {/* Filter Bar */}
-      <div className="bg-[#131b2e] border border-[#1f2937] p-4 rounded flex flex-col md:flex-row gap-4 items-center justify-between">
-        <div className="relative w-full md:w-96">
-          <Search className="w-4 h-4 text-[#bbcabf] absolute left-3.5 top-1/2 -translate-y-1/2" />
+      {/* Filter & Search Controls */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-[#131b2e] p-4 rounded border border-[#1f2937]">
+        {/* Search */}
+        <div className="md:col-span-2 relative">
+          <Search className="w-4 h-4 text-[#bbcabf] absolute left-3 top-3" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search questions by title or topic..."
-            className="w-full bg-[#0b1326] border border-[#3c4a42] rounded px-3.5 pl-10 py-2 text-xs text-[#dbe2fd] placeholder:text-[#bbcabf]/50 focus:outline-none focus:border-[#10b981] font-mono"
+            placeholder="Search problems by title, slug, or tag..."
+            className="w-full bg-[#0b1326] border border-[#3c4a42] rounded pl-9 pr-4 py-2 text-xs text-[#dbe2fd] placeholder:text-[#bbcabf]/40 focus:outline-none focus:border-[#10b981] font-mono"
           />
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-mono uppercase text-[#bbcabf] mr-2">Difficulty:</span>
-          {['ALL', 'EASY', 'MEDIUM', 'HARD'].map((diff) => (
-            <button
-              key={diff}
-              onClick={() => setSelectedDifficulty(diff)}
-              className={`px-3 py-1 rounded text-xs font-mono font-semibold transition-all ${
-                selectedDifficulty === diff
-                  ? 'bg-[#10b981] text-[#0b1326]'
-                  : 'bg-[#0b1326] text-[#bbcabf] border border-[#3c4a42] hover:text-[#dbe2fd]'
-              }`}
-            >
-              {diff}
-            </button>
-          ))}
+        {/* Difficulty Filter */}
+        <div>
+          <select
+            value={selectedDifficulty}
+            onChange={(e) => setSelectedDifficulty(e.target.value)}
+            className="w-full bg-[#0b1326] border border-[#3c4a42] rounded px-3 py-2 text-xs text-[#dbe2fd] focus:outline-none focus:border-[#10b981] font-mono"
+          >
+            <option value="ALL">All Difficulties</option>
+            <option value="EASY">EASY</option>
+            <option value="MEDIUM">MEDIUM</option>
+            <option value="HARD">HARD</option>
+          </select>
         </div>
       </div>
 
@@ -324,10 +335,10 @@ export default function AdminManageQuestionsPage() {
                       </div>
                     </td>
                     <td className="py-4 px-6 text-[#bbcabf]">
-                      <span className="text-[#10b981] font-bold">{q.sample_count || 2} Public</span> · <span>{q.hidden_count || 8} Hidden</span>
+                      <span className="text-[#10b981] font-bold">{q.sample_count ?? 0} Public</span> · <span>{q.hidden_count ?? 0} Hidden</span>
                     </td>
                     <td className="py-4 px-6">
-                      <span className="px-2 py-0.5 rounded bg-[#003824] text-[#10b981] border border-[#005236] text-[10px] font-bold">
+                      <span className="px-2.5 py-0.5 rounded bg-[#003824] text-[#10b981] border border-[#005236] text-[10px] font-bold">
                         PUBLISHED
                       </span>
                     </td>
@@ -348,7 +359,7 @@ export default function AdminManageQuestionsPage() {
                       </Link>
                       <button
                         onClick={() => handleDeleteQuestion(q.id, q.title)}
-                        className="p-1.5 rounded bg-[#0b1326] hover:bg-[#450a0a] text-[#bbcabf] hover:text-[#f87171] border border-[#3c4a42] inline-flex items-center transition-colors"
+                        className="p-1.5 rounded bg-[#0b1326] hover:bg-[#171f33] text-[#bbcabf] hover:text-[#f87171] border border-[#3c4a42] inline-flex items-center"
                         title="Delete Question"
                       >
                         <Trash2 className="w-3.5 h-3.5" />

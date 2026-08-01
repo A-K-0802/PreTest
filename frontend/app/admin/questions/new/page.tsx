@@ -163,24 +163,9 @@ function QuestionFormContent() {
 
     const validTestcases = testcases.filter((tc) => tc.input.trim() !== '' || tc.expected_output.trim() !== '');
 
-    const apiPayload = {
-      title: title.trim(),
-      description,
-      difficulty,
-      input_format: inputFormat,
-      output_format: outputFormat,
-      constraints: constraints.split('\n').filter(Boolean),
-      tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
-      testcases: validTestcases.map((tc) => ({
-        input: tc.input,
-        expected_output: tc.expected_output,
-        is_hidden: tc.is_hidden,
-      })),
-    };
-
     let activeQuestionId = qId;
 
-    // 1. Submit directly to backend API (bypasses Supabase RLS limits with SQL connection)
+    // 1. Save directly via backend API if accessible
     try {
       const endpoint = editId ? `${API_URL}/questions/${editId}` : `${API_URL}/questions`;
       const method = editId ? 'PUT' : 'POST';
@@ -188,20 +173,75 @@ function QuestionFormContent() {
       const res = await fetch(endpoint, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(apiPayload),
+        body: JSON.stringify({
+          title: title.trim(),
+          description,
+          difficulty,
+          input_format: inputFormat,
+          output_format: outputFormat,
+          constraints: constraints.split('\n').filter(Boolean),
+          tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
+          testcases: validTestcases.map((tc) => ({
+            input: tc.input,
+            expected_output: tc.expected_output,
+            is_hidden: tc.is_hidden,
+          })),
+        }),
       });
 
       if (res.ok) {
         const resData = await res.json();
-        if (resData?.id) {
-          activeQuestionId = resData.id;
-        }
+        if (resData?.id) activeQuestionId = resData.id;
       }
     } catch (apiErr) {
       console.warn('Backend API save notice:', apiErr);
     }
 
-    // 2. Local memory persistence object
+    // 2. Direct Supabase DB table insert/update fallback
+    try {
+      if (editId) {
+        await supabase.from('questions').update({
+          title: title.trim(),
+          title_slug: titleSlug,
+          description,
+          difficulty,
+          input_format: inputFormat,
+          output_format: outputFormat,
+          constraints: constraints.split('\n').filter(Boolean),
+          tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
+        }).eq('id', editId);
+
+        await supabase.from('testcases').delete().eq('question_id', editId);
+      } else {
+        const { data: insertedQ } = await supabase.from('questions').insert([{
+          id: activeQuestionId,
+          title: title.trim(),
+          title_slug: titleSlug,
+          description,
+          difficulty,
+          input_format: inputFormat,
+          output_format: outputFormat,
+          constraints: constraints.split('\n').filter(Boolean),
+          tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
+        }]).select().single();
+
+        if (insertedQ?.id) activeQuestionId = insertedQ.id;
+      }
+
+      if (validTestcases.length > 0) {
+        const tcRows = validTestcases.map((tc) => ({
+          question_id: activeQuestionId,
+          input: tc.input,
+          expected_output: tc.expected_output,
+          is_hidden: tc.is_hidden,
+        }));
+        await supabase.from('testcases').insert(tcRows);
+      }
+    } catch (sbErr) {
+      console.warn('Supabase DB testcases save notice:', sbErr);
+    }
+
+    // 3. Local memory persistence object
     const questionObj = {
       id: activeQuestionId,
       title: title.trim(),
