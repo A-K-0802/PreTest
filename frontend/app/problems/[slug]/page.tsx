@@ -23,8 +23,8 @@ import {
   SendHorizontal
 } from 'lucide-react';
 
-// Comprehensive baseline dataset for all 6 catalog problems with clean student starter templates
-const PROBLEMS_CATALOG: Record<string, any> = {
+// Comprehensive baseline dataset for standard catalog questions
+const BASELINE_PROBLEMS: Record<string, any> = {
   'two-sum': {
     id: '1',
     title: 'Two Sum',
@@ -47,42 +47,8 @@ You may assume that each input would have **exactly one solution**, and you may 
       { input: '3\n3 2 4\n6', output: '1 2' },
     ],
     starterCode: {
-      python: `import sys
-
-def two_sum(nums, target):
-    # Write your solution here...
-    pass
-
-if __name__ == '__main__':
-    lines = sys.stdin.read().split()
-    if lines:
-        n = int(lines[0])
-        nums = [int(x) for x in lines[1:n+1]]
-        target = int(lines[n+1])
-        ans = two_sum(nums, target)
-        if ans:
-            print(f"{ans[0]} {ans[1]}")
-`,
-      cpp: `#include <iostream>
-#include <vector>
-using namespace std;
-
-void solve() {
-    int n, target;
-    if (!(cin >> n)) return;
-    vector<int> nums(n);
-    for (int i = 0; i < n; i++) cin >> nums[i];
-    cin >> target;
-
-    // Write your solution here...
-
-}
-
-int main() {
-    solve();
-    return 0;
-}
-`
+      python: `import sys\n\ndef two_sum(nums, target):\n    # Write your solution here...\n    pass\n\nif __name__ == '__main__':\n    lines = sys.stdin.read().split()\n    if lines:\n        n = int(lines[0])\n        nums = [int(x) for x in lines[1:n+1]]\n        target = int(lines[n+1])\n        ans = two_sum(nums, target)\n        if ans:\n            print(f"{ans[0]} {ans[1]}")\n`,
+      cpp: `#include <iostream>\n#include <vector>\nusing namespace std;\n\nvoid solve() {\n    int n, target;\n    if (!(cin >> n)) return;\n    vector<int> nums(n);\n    for (int i = 0; i < n; i++) cin >> nums[i];\n    cin >> target;\n\n    // Write your solution here...\n\n}\n\nint main() {\n    solve();\n    return 0;\n}\n`
     },
     solution: {
       hasSolution: true,
@@ -98,250 +64,22 @@ int main() {
     slug: 'valid-parentheses',
     difficulty: 'EASY',
     tags: ['String', 'Stack'],
-    description: `Given a string \`s\` containing just the characters \`'('\`, \`')'\`, \`'{'\`, \`'}'\`, \`'['\` and \`']'\`, determine if the input string is valid.
-
-An input string is valid if:
-1. Open brackets must be closed by the same type of brackets.
-2. Open brackets must be closed in the correct order.
-3. Every close bracket has a corresponding open bracket of the same type.`,
+    description: `Given a string \`s\` containing just the characters \`'('\`, \`')'\`, \`'{'\`, \`'}'\`, \`'['\` and \`']'\`, determine if the input string is valid.`,
     inputFormat: 'Line 1: String s',
     outputFormat: 'Print `true` if valid, otherwise `false`',
-    constraints: [
-      '1 <= s.length <= 10^4',
-      's consists of parentheses only \'()[]{}\'.',
-    ],
+    constraints: ['1 <= s.length <= 10^4'],
     sampleCases: [
       { input: '()[]{}', output: 'true' },
       { input: '(]', output: 'false' },
     ],
     starterCode: {
-      python: `import sys
-
-def is_valid(s):
-    # Write your solution here...
-    pass
-
-if __name__ == '__main__':
-    s = sys.stdin.read().strip()
-    print("true" if is_valid(s) else "false")
-`,
-      cpp: `#include <iostream>
-#include <string>
-using namespace std;
-
-bool isValid(string s) {
-    // Write your solution here...
-    return false;
-}
-
-int main() {
-    string s;
-    if (cin >> s) {
-        cout << (isValid(s) ? "true" : "false") << endl;
-    }
-    return 0;
-}
-`
+      python: `import sys\n\ndef is_valid(s):\n    # Write your solution here...\n    pass\n\nif __name__ == '__main__':\n    s = sys.stdin.read().strip()\n    print("true" if is_valid(s) else "false")\n`,
+      cpp: `#include <iostream>\n#include <string>\nusing namespace std;\n\nbool isValid(string s) {\n    // Write your solution here...\n    return false;\n}\n\nint main() {\n    string s;\n    if (cin >> s) {\n        cout << (isValid(s) ? "true" : "false") << endl;\n    }\n    return 0;\n}\n`
     },
     solution: {
       hasSolution: true,
       title: 'Official Editorial — Stack Matching',
-      explanation: `### Approach: Stack\nUse a stack data structure to store opening brackets. When encountering a closing bracket, verify that it matches the top of the stack.\n\n### Complexity\n- **Time Complexity:** $O(N)$\n- **Space Complexity:** $O(N)$`,
-      pythonCode: `def isValid(s: str) -> bool:\n    stack = []\n    lookup = {")": "(", "}": "{", "]": "["}\n    for c in s:\n        if c in lookup:\n            if not stack or stack[-1] != lookup[c]:\n                return False\n            stack.pop()\n        else:\n            stack.append(c)\n    return not stack`,
-      cppCode: `bool isValid(string s) {\n    stack<char> st;\n    for (char c : s) {\n        if (c == '(' || c == '{' || c == '[') st.push(c);\n        else {\n            if (st.empty()) return false;\n            if (c == ')' && st.top() != '(') return false;\n            if (c == '}' && st.top() != '{') return false;\n            if (c == ']' && st.top() != '[') return false;\n            st.pop();\n        }\n    }\n    return st.empty();\n}`
-    }
-  },
-  'add-two-numbers': {
-    id: '2',
-    title: 'Add Two Numbers',
-    slug: 'add-two-numbers',
-    difficulty: 'MEDIUM',
-    tags: ['Linked List', 'Math', 'Two Pointers'],
-    description: `You are given two non-empty linked lists representing two non-negative integers. The digits are stored in reverse order, and each of their nodes contains a single digit. Add the two numbers and return the sum as a linked list.`,
-    inputFormat: 'Line 1: List 1 space-separated digits\nLine 2: List 2 space-separated digits',
-    outputFormat: 'Space-separated digits of the result list',
-    constraints: ['The number of nodes in each linked list is in range [1, 100].', '0 <= Node.val <= 9'],
-    sampleCases: [
-      { input: '2 4 3\n5 6 4', output: '7 0 8' }
-    ],
-    starterCode: {
-      python: `import sys
-
-def add_two_numbers(l1, l2):
-    # Write your solution here...
-    pass
-
-if __name__ == '__main__':
-    lines = sys.stdin.read().strip().split('\\n')
-    if len(lines) >= 2:
-        l1 = [int(x) for x in lines[0].split()]
-        l2 = [int(x) for x in lines[1].split()]
-        ans = add_two_numbers(l1, l2)
-        if ans:
-            print(" ".join(map(str, ans)))
-`,
-      cpp: `#include <iostream>
-#include <vector>
-using namespace std;
-
-void solve() {
-    // Write your solution here...
-
-}
-
-int main() {
-    solve();
-    return 0;
-}
-`
-    },
-    solution: {
-      hasSolution: true,
-      title: 'Official Editorial — Elementary Addition with Carry',
-      explanation: `Simulate digit-by-digit addition from left to right while keeping track of carry.`,
-      pythonCode: ``, cppCode: ``
-    }
-  },
-  'longest-substring-without-repeating-characters': {
-    id: '3',
-    title: 'Longest Substring Without Repeating Characters',
-    slug: 'longest-substring-without-repeating-characters',
-    difficulty: 'MEDIUM',
-    tags: ['Hash Table', 'String', 'Sliding Window'],
-    description: `Given a string \`s\`, find the length of the longest substring without repeating characters.`,
-    inputFormat: 'Line 1: String s',
-    outputFormat: 'Integer representing maximum length',
-    constraints: ['0 <= s.length <= 5 * 10^4'],
-    sampleCases: [{ input: 'abcabcbb', output: '3' }],
-    starterCode: {
-      python: `import sys
-
-def length_of_longest_substring(s):
-    # Write your solution here...
-    return 0
-
-if __name__ == '__main__':
-    s = sys.stdin.read().strip()
-    print(length_of_longest_substring(s))
-`,
-      cpp: `#include <iostream>
-#include <string>
-using namespace std;
-
-int lengthOfLongestSubstring(string s) {
-    // Write your solution here...
-    return 0;
-}
-
-int main() {
-    string s;
-    if (cin >> s) {
-        cout << lengthOfLongestSubstring(s) << endl;
-    }
-    return 0;
-}
-`
-    },
-    solution: {
-      hasSolution: true,
-      title: 'Official Editorial — Sliding Window',
-      explanation: `Use a sliding window with two pointers \`left\` and \`right\` and a hash map of last seen indices.`,
-      pythonCode: ``, cppCode: ``
-    }
-  },
-  'trapping-rain-water': {
-    id: '4',
-    title: 'Trapping Rain Water',
-    slug: 'trapping-rain-water',
-    difficulty: 'HARD',
-    tags: ['Array', 'Two Pointers', 'Dynamic Programming', 'Stack'],
-    description: `Given \`n\` non-negative integers representing an elevation map where the width of each bar is 1, compute how much water it can trap after raining.`,
-    inputFormat: 'Line 1: N\nLine 2: N space-separated heights',
-    outputFormat: 'Integer volume of trapped water',
-    constraints: ['n == height.length', '1 <= n <= 2 * 10^4'],
-    sampleCases: [{ input: '12\n0 1 0 2 1 0 1 3 2 1 2 1', output: '6' }],
-    starterCode: {
-      python: `import sys
-
-def trap(height):
-    # Write your solution here...
-    return 0
-
-if __name__ == '__main__':
-    lines = sys.stdin.read().split()
-    if lines:
-        n = int(lines[0])
-        h = [int(x) for x in lines[1:n+1]]
-        print(trap(h))
-`,
-      cpp: `#include <iostream>
-#include <vector>
-using namespace std;
-
-int trap(vector<int>& height) {
-    // Write your solution here...
-    return 0;
-}
-
-int main() {
-    int n;
-    if (cin >> n) {
-        vector<int> h(n);
-        for (int i = 0; i < n; i++) cin >> h[i];
-        cout << trap(h) << endl;
-    }
-    return 0;
-}
-`
-    },
-    solution: {
-      hasSolution: true,
-      title: 'Official Editorial — Two Pointers',
-      explanation: `Use two pointers moving inward from both ends to calculate bounded water height.`,
-      pythonCode: ``, cppCode: ``
-    }
-  },
-  'merge-k-sorted-lists': {
-    id: '6',
-    title: 'Merge K Sorted Lists',
-    slug: 'merge-k-sorted-lists',
-    difficulty: 'HARD',
-    tags: ['Linked List', 'Divide and Conquer', 'Heap'],
-    description: `You are given an array of k linked-lists lists, each linked-list is sorted in ascending order. Merge all the linked-lists into one sorted linked-list and return it.`,
-    inputFormat: 'Line 1: K\nLine 2..K+1: Space-separated sorted integers',
-    outputFormat: 'Merged sorted space-separated integers',
-    constraints: ['k == lists.length', '0 <= k <= 10^4'],
-    sampleCases: [{ input: '3\n1 4 5\n1 3 4\n2 6', output: '1 1 2 3 4 4 5 6' }],
-    starterCode: {
-      python: `import sys
-
-def merge_k_lists(lists):
-    # Write your solution here...
-    pass
-
-if __name__ == '__main__':
-    lines = sys.stdin.read().strip().split('\\n')
-    # Parse input and call merge_k_lists
-`,
-      cpp: `#include <iostream>
-#include <vector>
-using namespace std;
-
-void solve() {
-    // Write your solution here...
-
-}
-
-int main() {
-    solve();
-    return 0;
-}
-`
-    },
-    solution: {
-      hasSolution: true,
-      title: 'Official Editorial — Min Heap Priority Queue',
-      explanation: `Maintain a min-heap to pick the smallest current element among k lists.`,
+      explanation: `Use a stack data structure to store opening brackets.`,
       pythonCode: ``, cppCode: ``
     }
   }
@@ -351,9 +89,7 @@ export default function ProblemDetailPage({ params }: { params: Promise<{ slug: 
   const resolvedParams = use(params);
   const currentSlug = resolvedParams.slug || 'two-sum';
 
-  // Load problem details matching current URL slug
-  const problem = PROBLEMS_CATALOG[currentSlug] || PROBLEMS_CATALOG['two-sum'];
-
+  const [problem, setProblem] = useState<any>(BASELINE_PROBLEMS[currentSlug] || BASELINE_PROBLEMS['two-sum']);
   const { language, code, setLanguage, setCode, isExecuting, setIsExecuting, activeTab, setActiveTab } = useIDEStore();
   const [output, setOutput] = useState<string | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
@@ -368,16 +104,87 @@ export default function ProblemDetailPage({ params }: { params: Promise<{ slug: 
   const supabase = createClient();
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
-  // Update starter code template when language or problem changes
+  // Dynamically load problem details by slug from Supabase DB or custom_questions
   useEffect(() => {
-    if (problem.starterCode) {
+    const loadProblemBySlug = async () => {
+      // 1. Check custom_questions in localStorage first
+      const customQuestions: any[] = JSON.parse(localStorage.getItem('custom_questions') || '[]');
+      const customMatch = customQuestions.find((q) => q.title_slug === currentSlug || q.id === currentSlug);
+
+      if (customMatch) {
+        setProblem({
+          id: customMatch.id,
+          title: customMatch.title,
+          slug: customMatch.title_slug,
+          difficulty: customMatch.difficulty,
+          tags: customMatch.tags || [],
+          description: customMatch.description,
+          inputFormat: customMatch.input_format || 'Standard Input (stdin)',
+          outputFormat: customMatch.output_format || 'Standard Output (stdout)',
+          constraints: customMatch.constraints || [],
+          sampleCases: customMatch.testcases && customMatch.testcases.length > 0 
+            ? customMatch.testcases.filter((tc: any) => !tc.is_hidden)
+            : [{ input: '4\n2 7 11 15\n9', output: '0 1' }],
+          starterCode: {
+            python: `import sys\n\ndef solve():\n    # Write your solution for ${customMatch.title} here...\n    pass\n\nif __name__ == '__main__':\n    solve()`,
+            cpp: `#include <iostream>\nusing namespace std;\n\nint main() {\n    // Write your solution for ${customMatch.title} here...\n    return 0;\n}`
+          },
+          solution: { hasSolution: false }
+        });
+        return;
+      }
+
+      // 2. Query Supabase DB for live question data
+      const { data: dbQuestion, error } = await supabase
+        .from('questions')
+        .select('*, testcases(*)')
+        .eq('title_slug', currentSlug)
+        .single();
+
+      if (!error && dbQuestion) {
+        const publicCases = dbQuestion.testcases 
+          ? dbQuestion.testcases.filter((tc: any) => !tc.is_hidden).map((tc: any) => ({ input: tc.input, output: tc.expected_output }))
+          : [{ input: '4\n2 7 11 15\n9', output: '0 1' }];
+
+        setProblem({
+          id: dbQuestion.id,
+          title: dbQuestion.title,
+          slug: dbQuestion.title_slug,
+          difficulty: dbQuestion.difficulty,
+          tags: dbQuestion.tags || [],
+          description: dbQuestion.description,
+          inputFormat: dbQuestion.input_format || 'Standard Input (stdin)',
+          outputFormat: dbQuestion.output_format || 'Standard Output (stdout)',
+          constraints: dbQuestion.constraints || [],
+          sampleCases: publicCases.length > 0 ? publicCases : [{ input: '4\n2 7 11 15\n9', output: '0 1' }],
+          starterCode: {
+            python: `import sys\n\ndef solve():\n    # Write your solution for ${dbQuestion.title} here...\n    pass\n\nif __name__ == '__main__':\n    solve()`,
+            cpp: `#include <iostream>\nusing namespace std;\n\nint main() {\n    // Write your solution for ${dbQuestion.title} here...\n    return 0;\n}`
+          },
+          solution: { hasSolution: false }
+        });
+        return;
+      }
+
+      // 3. Fallback to baseline problem catalog if matching
+      if (BASELINE_PROBLEMS[currentSlug]) {
+        setProblem(BASELINE_PROBLEMS[currentSlug]);
+      }
+    };
+
+    loadProblemBySlug();
+  }, [currentSlug]);
+
+  // Update starter code when language or problem changes
+  useEffect(() => {
+    if (problem?.starterCode) {
       if (language === 'python' && problem.starterCode.python) {
         setCode(problem.starterCode.python);
       } else if (language === 'cpp' && problem.starterCode.cpp) {
         setCode(problem.starterCode.cpp);
       }
     }
-  }, [currentSlug, language]);
+  }, [problem, language]);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -393,9 +200,11 @@ export default function ProblemDetailPage({ params }: { params: Promise<{ slug: 
   // Fetch comments for this specific question
   useEffect(() => {
     const fetchComments = async () => {
+      if (!problem?.id) return;
       const { data, error } = await supabase
         .from('comments')
         .select('*, profiles(username, avatar_url)')
+        .eq('question_id', problem.id)
         .order('created_at', { ascending: false });
 
       if (!error && data) {
@@ -403,12 +212,16 @@ export default function ProblemDetailPage({ params }: { params: Promise<{ slug: 
       }
     };
     fetchComments();
-  }, [activeTab, currentSlug]);
+  }, [activeTab, problem?.id]);
 
   // Real execution against Judge0 backend API
   const handleRunCode = async () => {
     setIsExecuting(true);
     setOutput('Compiling and executing code with Judge0 sandbox...');
+
+    const sampleCase = problem.sampleCases && problem.sampleCases.length > 0 
+      ? problem.sampleCases[0] 
+      : { input: '', output: '' };
 
     try {
       const response = await fetch(`${API_URL}/execution/run`, {
@@ -417,9 +230,9 @@ export default function ProblemDetailPage({ params }: { params: Promise<{ slug: 
         body: JSON.stringify({
           code: code,
           language: language,
-          stdin: problem.sampleCases[0].input,
-          input: problem.sampleCases[0].input,
-          expected_output: problem.sampleCases[0].output,
+          stdin: sampleCase.input,
+          input: sampleCase.input,
+          expected_output: sampleCase.output,
         }),
       });
 
@@ -431,12 +244,12 @@ export default function ProblemDetailPage({ params }: { params: Promise<{ slug: 
       setIsExecuting(false);
 
       const actualStdout = (resData.stdout || '').trim();
-      const expectedStdout = problem.sampleCases[0].output.trim();
+      const expectedStdout = (sampleCase.output || '').trim();
 
       if (actualStdout === expectedStdout) {
-        setOutput(`✅ TESTCASE PASSED\n\nInput:\n${problem.sampleCases[0].input}\n\nYour Output:\n${actualStdout || '(Empty Output)'}\n\nExpected Output:\n${expectedStdout}\n\nExecution Time: ${resData.execution_time_ms || 12}ms | Memory: ${resData.memory_kb ? (resData.memory_kb / 1024).toFixed(1) : 14.2}MB`);
+        setOutput(`✅ TESTCASE PASSED\n\nInput:\n${sampleCase.input}\n\nYour Output:\n${actualStdout || '(Empty Output)'}\n\nExpected Output:\n${expectedStdout}\n\nExecution Time: ${resData.execution_time_ms || 12}ms | Memory: ${resData.memory_kb ? (resData.memory_kb / 1024).toFixed(1) : 14.2}MB`);
       } else {
-        setOutput(`❌ WRONG ANSWER\n\nInput:\n${problem.sampleCases[0].input}\n\nYour Output:\n${actualStdout || '(Empty Output)'}\n\nExpected Output:\n${expectedStdout}`);
+        setOutput(`❌ WRONG ANSWER\n\nInput:\n${sampleCase.input}\n\nYour Output:\n${actualStdout || '(Empty Output)'}\n\nExpected Output:\n${expectedStdout}`);
       }
     } catch (err: any) {
       setIsExecuting(false);
@@ -451,7 +264,7 @@ export default function ProblemDetailPage({ params }: { params: Promise<{ slug: 
     }
 
     setIsExecuting(true);
-    setOutput('Submitting solution to Judge0 evaluation engine...');
+    setOutput(`Submitting solution for "${problem.title}" to Judge0 evaluation engine...`);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -484,7 +297,7 @@ export default function ProblemDetailPage({ params }: { params: Promise<{ slug: 
       setIsExecuting(false);
 
       if (resData.verdict === 'ACCEPTED') {
-        setOutput(`🎉 ACCEPTED\nAll testcases passed successfully!\nPassed: ${resData.passed_cases || 1}/${resData.total_cases || 1}\nRuntime: ${resData.execution_time_ms || 12}ms\nMemory: ${resData.memory_kb ? (resData.memory_kb / 1024).toFixed(1) : 14.1}MB`);
+        setOutput(`🎉 ACCEPTED\nAll testcases passed successfully for "${problem.title}"!\nPassed: ${resData.passed_cases || 1}/${resData.total_cases || 1}\nRuntime: ${resData.execution_time_ms || 12}ms\nMemory: ${resData.memory_kb ? (resData.memory_kb / 1024).toFixed(1) : 14.1}MB`);
       } else {
         setOutput(`❌ ${resData.verdict}\nPassed: ${resData.passed_cases || 0}/${resData.total_cases || 1}\n${resData.error_message || 'Evaluation failed on testcase.'}`);
       }
@@ -624,7 +437,7 @@ export default function ProblemDetailPage({ params }: { params: Promise<{ slug: 
               <div>
                 <h4 className="text-[11px] font-mono font-bold text-[#10b981] uppercase tracking-wider mb-2">Constraints</h4>
                 <ul className="list-disc list-inside space-y-1 text-xs text-[#bbcabf] font-mono bg-[#131b2e] p-3 rounded border border-[#1f2937]">
-                  {problem.constraints.map((c: string, i: number) => (
+                  {problem.constraints && problem.constraints.map((c: string, i: number) => (
                     <li key={i}>{c}</li>
                   ))}
                 </ul>
@@ -633,7 +446,7 @@ export default function ProblemDetailPage({ params }: { params: Promise<{ slug: 
               <div>
                 <h4 className="text-[11px] font-mono font-bold text-[#10b981] uppercase tracking-wider mb-2">Sample Testcases</h4>
                 <div className="space-y-3">
-                  {problem.sampleCases.map((tc: any, idx: number) => (
+                  {problem.sampleCases && problem.sampleCases.map((tc: any, idx: number) => (
                     <div key={idx} className="p-3.5 bg-[#131b2e] border border-[#1f2937] rounded text-xs font-mono space-y-2">
                       <div>
                         <span className="text-[#bbcabf] font-bold">Input: </span>

@@ -51,7 +51,7 @@ async def submit_code(
 ):
     """
     Authenticated Endpoint: Evaluates user code against ALL testcases (sample + hidden)
-    and records submission verdict in database.
+    for the specific question requested, recording submission verdict in database.
     """
     question_id_str = str(request.question_id)
     question = None
@@ -60,8 +60,11 @@ async def submit_code(
         if len(question_id_str) == 36:
             q_uuid = UUID(question_id_str)
             question = db.query(Question).filter(Question.id == q_uuid).first()
-        else:
-            question = db.query(Question).filter(Question.title_slug == "two-sum").first()
+        
+        if not question:
+            question = db.query(Question).filter(
+                (Question.title_slug == question_id_str) | (Question.id == question_id_str)
+            ).first()
     except Exception:
         db.rollback()
         question = None
@@ -75,7 +78,7 @@ async def submit_code(
             testcases = []
 
     if not testcases:
-        # Fallback testcase suite if question has no configured testcases in DB yet
+        # Default testcase suite if question has no custom testcases in DB yet
         testcases = [
             Testcase(input="4\n2 7 11 15\n9", expected_output="0 1", is_hidden=False),
             Testcase(input="3\n3 2 4\n6", expected_output="1 2", is_hidden=False),
@@ -107,7 +110,7 @@ async def submit_code(
         else:
             final_verdict = verdict
             error_msg = exec_result["stderr"] or exec_result["compile_output"] or f"Failed on testcase input: {tc.input}"
-            break  # Stop execution on first failing test case (LeetCode style)
+            break  # Stop execution on first failing testcase
 
     submission_id = uuid.uuid4()
 
