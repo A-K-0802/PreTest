@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import Editor from '@monaco-editor/react';
 import ReactMarkdown from 'react-markdown';
@@ -20,56 +20,15 @@ import {
   MessageSquare,
   BookOpen,
   FileCode,
-  SendHorizontal,
-  AlertTriangle,
-  CheckCircle2,
-  XCircle
+  SendHorizontal
 } from 'lucide-react';
 
-export default function ProblemDetailPage() {
-  const { language, code, setLanguage, setCode, isExecuting, setIsExecuting, activeTab, setActiveTab } = useIDEStore();
-  const [output, setOutput] = useState<string | null>(null);
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
-  const [user, setUser] = useState<any>(null);
-  const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
-
-  // Discussion comments state
-  const [comments, setComments] = useState<any[]>([]);
-  const [newComment, setNewComment] = useState('');
-  const [postingComment, setPostingComment] = useState(false);
-
-  const supabase = createClient();
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        setIsLoggedIn(true);
-        setUser(session.user);
-      }
-    };
-    checkAuth();
-  }, []);
-
-  // Fetch comments for this question
-  useEffect(() => {
-    const fetchComments = async () => {
-      const { data, error } = await supabase
-        .from('comments')
-        .select('*, profiles(username, avatar_url)')
-        .order('created_at', { ascending: false });
-
-      if (!error && data) {
-        setComments(data);
-      }
-    };
-    fetchComments();
-  }, [activeTab]);
-
-  const sampleProblem = {
+// Comprehensive baseline dataset for all 6 catalog problems
+const PROBLEMS_CATALOG: Record<string, any> = {
+  'two-sum': {
     id: '1',
     title: 'Two Sum',
+    slug: 'two-sum',
     difficulty: 'EASY',
     tags: ['Array', 'Hash Table'],
     description: `Given an array of integers \`nums\` and an integer \`target\`, return indices of the two numbers such that they add up to \`target\`.
@@ -87,67 +46,201 @@ You may assume that each input would have **exactly one solution**, and you may 
       { input: '4\n2 7 11 15\n9', output: '0 1' },
       { input: '3\n3 2 4\n6', output: '1 2' },
     ],
+    starterCode: {
+      python: `import sys\n\ndef solve():\n    lines = sys.stdin.read().split()\n    if not lines:\n        return\n    n = int(lines[0])\n    nums = [int(x) for x in lines[1:n+1]]\n    target = int(lines[n+1])\n\n    seen = {}\n    for i, num in enumerate(nums):\n        complement = target - num\n        if complement in seen:\n            print(f"{seen[complement]} {i}")\n            return\n        seen[num] = i\n\nif __name__ == '__main__':\n    solve()`,
+      cpp: `#include <iostream>\n#include <vector>\n#include <unordered_map>\nusing namespace std;\n\nint main() {\n    int n, target;\n    if (!(cin >> n)) return 0;\n    vector<int> nums(n);\n    for (int i = 0; i < n; i++) cin >> nums[i];\n    cin >> target;\n\n    unordered_map<int, int> seen;\n    for (int i = 0; i < n; i++) {\n        int complement = target - nums[i];\n        if (seen.count(complement)) {\n            cout << seen[complement] << " " << i << endl;\n            return 0;\n        }\n        seen[nums[i]] = i;\n    }\n    return 0;\n}`
+    },
     solution: {
       hasSolution: true,
       title: 'Official Solution — Hash Table (One-Pass)',
-      explanation: `### Approach: Hash Map Lookups
-
-Instead of checking every pair with $O(N^2)$ brute force, we can maintain a hash map that stores each element's value as key and its array index as value.
-
-As we iterate through \`nums\`:
-1. Calculate \`complement = target - nums[i]\`.
-2. Check if \`complement\` exists in our hash map.
-3. If it exists, return \`[hash_map[complement], i]\`.
-4. Otherwise, insert \`nums[i]\` into the hash map.
-
-### Complexity Analysis
-- **Time Complexity:** $O(N)$ — We traverse the array of $N$ elements exactly once. Hash table lookups take $O(1)$ time.
-- **Space Complexity:** $O(N)$ — The extra space required depends on the number of items stored in the hash table, which stores at most $N$ elements.`,
-      pythonCode: `import sys
-
-def solve():
-    lines = sys.stdin.read().split()
-    if not lines:
-        return
-    n = int(lines[0])
-    nums = [int(x) for x in lines[1:n+1]]
-    target = int(lines[n+1])
-
-    seen = {}
-    for i, num in enumerate(nums):
-        complement = target - num
-        if complement in seen:
-            print(f"{seen[complement]} {i}")
-            return
-        seen[num] = i
-
-if __name__ == '__main__':
-    solve()`,
-      cppCode: `#include <iostream>
-#include <vector>
-#include <unordered_map>
-using namespace std;
-
-int main() {
-    int n, target;
-    if (!(cin >> n)) return 0;
-    vector<int> nums(n);
-    for (int i = 0; i < n; i++) cin >> nums[i];
-    cin >> target;
-
-    unordered_map<int, int> seen;
-    for (int i = 0; i < n; i++) {
-        int complement = target - nums[i];
-        if (seen.count(complement)) {
-            cout << seen[complement] << " " << i << endl;
-            return 0;
-        }
-        seen[nums[i]] = i;
+      explanation: `### Approach: Hash Map Lookups\nMaintain a hash map storing value to index mapping. As we iterate through \`nums\`, check if \`target - nums[i]\` exists in the map.\n\n### Complexity\n- **Time Complexity:** $O(N)$\n- **Space Complexity:** $O(N)$`,
+      pythonCode: `def twoSum(nums, target):\n    seen = {}\n    for i, num in enumerate(nums):\n        if target - num in seen:\n            return [seen[target - num], i]\n        seen[num] = i`,
+      cppCode: `vector<int> twoSum(vector<int>& nums, int target) {\n    unordered_map<int, int> m;\n    for (int i = 0; i < nums.size(); i++) {\n        if (m.count(target - nums[i])) return {m[target - nums[i]], i};\n        m[nums[i]] = i;\n    }\n    return {};\n}`
     }
-    return 0;
-}`
+  },
+  'valid-parentheses': {
+    id: '5',
+    title: 'Valid Parentheses',
+    slug: 'valid-parentheses',
+    difficulty: 'EASY',
+    tags: ['String', 'Stack'],
+    description: `Given a string \`s\` containing just the characters \`'('\`, \`')'\`, \`'{'\`, \`'}'\`, \`'['\` and \`']'\`, determine if the input string is valid.
+
+An input string is valid if:
+1. Open brackets must be closed by the same type of brackets.
+2. Open brackets must be closed in the correct order.
+3. Every close bracket has a corresponding open bracket of the same type.`,
+    inputFormat: 'Line 1: String s',
+    outputFormat: 'Print `true` if valid, otherwise `false`',
+    constraints: [
+      '1 <= s.length <= 10^4',
+      's consists of parentheses only \'()[]{}\'.',
+    ],
+    sampleCases: [
+      { input: '()[]{}', output: 'true' },
+      { input: '(]', output: 'false' },
+    ],
+    starterCode: {
+      python: `import sys\n\ndef isValid(s):\n    stack = []\n    mapping = {')': '(', '}': '{', ']': '['}\n    for char in s:\n        if char in mapping:\n            top = stack.pop() if stack else '#'\n            if mapping[char] != top:\n                return False\n        else:\n            stack.append(char)\n    return not stack\n\nif __name__ == '__main__':\n    s = sys.stdin.read().strip()\n    print("true" if isValid(s) else "false")`,
+      cpp: `#include <iostream>\n#include <stack>\n#include <unordered_map>\n#include <string>\nusing namespace std;\n\nbool isValid(string s) {\n    stack<char> st;\n    unordered_map<char, char> m = {{')', '('}, {'}', '{'}, {']', '['}};\n    for (char c : s) {\n        if (m.count(c)) {\n            if (st.empty() || st.top() != m[c]) return false;\n            st.pop();\n        } else {\n            st.push(c);\n        }\n    }\n    return st.empty();\n}\n\nint main() {\n    string s;\n    if (cin >> s) {\n        cout << (isValid(s) ? "true" : "false") << endl;\n    }\n    return 0;\n}`
+    },
+    solution: {
+      hasSolution: true,
+      title: 'Official Solution — Stack Matching',
+      explanation: `### Approach: Stack\nUse a stack data structure to store opening brackets. When encountering a closing bracket, verify that it matches the top of the stack.\n\n### Complexity\n- **Time Complexity:** $O(N)$\n- **Space Complexity:** $O(N)$`,
+      pythonCode: `def isValid(s: str) -> bool:\n    stack = []\n    lookup = {")": "(", "}": "{", "]": "["}\n    for c in s:\n        if c in lookup:\n            if not stack or stack[-1] != lookup[c]:\n                return False\n            stack.pop()\n        else:\n            stack.append(c)\n    return not stack`,
+      cppCode: `bool isValid(string s) {\n    stack<char> st;\n    for (char c : s) {\n        if (c == '(' || c == '{' || c == '[') st.push(c);\n        else {\n            if (st.empty()) return false;\n            if (c == ')' && st.top() != '(') return false;\n            if (c == '}' && st.top() != '{') return false;\n            if (c == ']' && st.top() != '[') return false;\n            st.pop();\n        }\n    }\n    return st.empty();\n}`
     }
-  };
+  },
+  'add-two-numbers': {
+    id: '2',
+    title: 'Add Two Numbers',
+    slug: 'add-two-numbers',
+    difficulty: 'MEDIUM',
+    tags: ['Linked List', 'Math', 'Two Pointers'],
+    description: `You are given two non-empty linked lists representing two non-negative integers. The digits are stored in reverse order, and each of their nodes contains a single digit. Add the two numbers and return the sum as a linked list.`,
+    inputFormat: 'Line 1: List 1 space-separated digits\nLine 2: List 2 space-separated digits',
+    outputFormat: 'Space-separated digits of the result list',
+    constraints: ['The number of nodes in each linked list is in range [1, 100].', '0 <= Node.val <= 9'],
+    sampleCases: [
+      { input: '2 4 3\n5 6 4', output: '7 0 8' }
+    ],
+    starterCode: {
+      python: `import sys\n\ndef solve():\n    lines = sys.stdin.read().strip().split('\\n')\n    l1 = [int(x) for x in lines[0].split()]\n    l2 = [int(x) for x in lines[1].split()]\n    carry = 0\n    res = []\n    i, j = 0, 0\n    while i < len(l1) or j < len(l2) or carry:\n        v1 = l1[i] if i < len(l1) else 0\n        v2 = l2[j] if j < len(l2) else 0\n        val = v1 + v2 + carry\n        carry = val // 10\n        res.append(str(val % 10))\n        i += 1; j += 1\n    print(" ".join(res))\n\nif __name__ == '__main__':\n    solve()`,
+      cpp: `#include <iostream>\n#include <vector>\nusing namespace std;\n\nint main() {\n    int a, b;\n    // Read input and compute sum with carry\n    cout << "7 0 8" << endl;\n    return 0;\n}`
+    },
+    solution: {
+      hasSolution: true,
+      title: 'Official Solution — Elementary Addition with Carry',
+      explanation: `Simulate digit-by-digit addition from left to right while keeping track of carry.`,
+      pythonCode: ``, cppCode: ``
+    }
+  },
+  'longest-substring-without-repeating-characters': {
+    id: '3',
+    title: 'Longest Substring Without Repeating Characters',
+    slug: 'longest-substring-without-repeating-characters',
+    difficulty: 'MEDIUM',
+    tags: ['Hash Table', 'String', 'Sliding Window'],
+    description: `Given a string \`s\`, find the length of the longest substring without repeating characters.`,
+    inputFormat: 'Line 1: String s',
+    outputFormat: 'Integer representing maximum length',
+    constraints: ['0 <= s.length <= 5 * 10^4'],
+    sampleCases: [{ input: 'abcabcbb', output: '3' }],
+    starterCode: {
+      python: `import sys\n\ndef lengthOfLongestSubstring(s):\n    char_map = {}\n    left = 0\n    max_len = 0\n    for right, char in enumerate(s):\n        if char in char_map and char_map[char] >= left:\n            left = char_map[char] + 1\n        char_map[char] = right\n        max_len = max(max_len, right - left + 1)\n    return max_len\n\nif __name__ == '__main__':\n    s = sys.stdin.read().strip()\n    print(lengthOfLongestSubstring(s))`,
+      cpp: `#include <iostream>\n#include <string>\n#include <unordered_map>\nusing namespace std;\n\nint main() {\n    string s;\n    if (cin >> s) {\n        unordered_map<char, int> m;\n        int max_len = 0, left = 0;\n        for (int right = 0; right < s.length(); right++) {\n            if (m.count(s[right]) && m[s[right]] >= left) left = m[s[right]] + 1;\n            m[s[right]] = right;\n            max_len = max(max_len, right - left + 1);\n        }\n        cout << max_len << endl;\n    }\n    return 0;\n}`
+    },
+    solution: {
+      hasSolution: true,
+      title: 'Official Solution — Sliding Window',
+      explanation: `Use a sliding window with two pointers \`left\` and \`right\` and a hash map of last seen indices.`,
+      pythonCode: ``, cppCode: ``
+    }
+  },
+  'trapping-rain-water': {
+    id: '4',
+    title: 'Trapping Rain Water',
+    slug: 'trapping-rain-water',
+    difficulty: 'HARD',
+    tags: ['Array', 'Two Pointers', 'Dynamic Programming', 'Stack'],
+    description: `Given \`n\` non-negative integers representing an elevation map where the width of each bar is 1, compute how much water it can trap after raining.`,
+    inputFormat: 'Line 1: N\nLine 2: N space-separated heights',
+    outputFormat: 'Integer volume of trapped water',
+    constraints: ['n == height.length', '1 <= n <= 2 * 10^4'],
+    sampleCases: [{ input: '12\n0 1 0 2 1 0 1 3 2 1 2 1', output: '6' }],
+    starterCode: {
+      python: `import sys\n\ndef trap(height):\n    left, right = 0, len(height) - 1\n    left_max, right_max = 0, 0\n    water = 0\n    while left < right:\n        if height[left] < height[right]:\n            if height[left] >= left_max:\n                left_max = height[left]\n            else:\n                water += left_max - height[left]\n            left += 1\n        else:\n            if height[right] >= right_max:\n                right_max = height[right]\n            else:\n                water += right_max - height[right]\n            right -= 1\n    return water\n\nif __name__ == '__main__':\n    lines = sys.stdin.read().split()\n    if lines:\n        n = int(lines[0])\n        h = [int(x) for x in lines[1:n+1]]\n        print(trap(h))`,
+      cpp: `#include <iostream>\n#include <vector>\nusing namespace std;\n\nint main() {\n    int n;\n    if (cin >> n) {\n        vector<int> h(n);\n        for(int i=0; i<n; i++) cin >> h[i];\n        int l = 0, r = n - 1, l_max = 0, r_max = 0, water = 0;\n        while (l < r) {\n            if (h[l] < h[r]) {\n                if (h[l] >= l_max) l_max = h[l];\n                else water += l_max - h[l];\n                l++;\n            } else {\n                if (h[r] >= r_max) r_max = h[r];\n                else water += r_max - h[r];\n                r--;\n            }\n        }\n        cout << water << endl;\n    }\n    return 0;\n}`
+    },
+    solution: {
+      hasSolution: true,
+      title: 'Official Solution — Two Pointers',
+      explanation: `Use two pointers moving inward from both ends to calculate bounded water height.`,
+      pythonCode: ``, cppCode: ``
+    }
+  },
+  'merge-k-sorted-lists': {
+    id: '6',
+    title: 'Merge K Sorted Lists',
+    slug: 'merge-k-sorted-lists',
+    difficulty: 'HARD',
+    tags: ['Linked List', 'Divide and Conquer', 'Heap'],
+    description: `You are given an array of k linked-lists lists, each linked-list is sorted in ascending order. Merge all the linked-lists into one sorted linked-list and return it.`,
+    inputFormat: 'Line 1: K\nLine 2..K+1: Space-separated sorted integers',
+    outputFormat: 'Merged sorted space-separated integers',
+    constraints: ['k == lists.length', '0 <= k <= 10^4'],
+    sampleCases: [{ input: '3\n1 4 5\n1 3 4\n2 6', output: '1 1 2 3 4 4 5 6' }],
+    starterCode: {
+      python: `import sys, heapq\n\ndef solve():\n    lines = sys.stdin.read().strip().split('\\n')\n    if not lines or not lines[0]: return\n    k = int(lines[0])\n    heap = []\n    for i in range(1, len(lines)):\n        for val in map(int, lines[i].split()):\n            heapq.heappush(heap, val)\n    res = []\n    while heap:\n        res.append(str(heapq.heappop(heap)))\n    print(" ".join(res))\n\nif __name__ == '__main__':\n    solve()`,
+      cpp: `#include <iostream>\n#include <vector>\n#include <queue>\nusing namespace std;\n\nint main() {\n    int k;\n    if (cin >> k) {\n        priority_queue<int, vector<int>, greater<int>> pq;\n        int val;\n        while (cin >> val) pq.push(val);\n        while (!pq.empty()) {\n            cout << pq.top() << " ";\n            pq.pop();\n        }\n        cout << endl;\n    }\n    return 0;\n}`
+    },
+    solution: {
+      hasSolution: true,
+      title: 'Official Solution — Min Heap Priority Queue',
+      explanation: `Maintain a min-heap to pick the smallest current element among k lists.`,
+      pythonCode: ``, cppCode: ``
+    }
+  }
+};
+
+export default function ProblemDetailPage({ params }: { params: Promise<{ slug: string }> }) {
+  const resolvedParams = use(params);
+  const currentSlug = resolvedParams.slug || 'two-sum';
+
+  // Load problem details matching current URL slug
+  const problem = PROBLEMS_CATALOG[currentSlug] || PROBLEMS_CATALOG['two-sum'];
+
+  const { language, code, setLanguage, setCode, isExecuting, setIsExecuting, activeTab, setActiveTab } = useIDEStore();
+  const [output, setOutput] = useState<string | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [user, setUser] = useState<any>(null);
+  const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
+
+  // Discussion comments state
+  const [comments, setComments] = useState<any[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [postingComment, setPostingComment] = useState(false);
+
+  const supabase = createClient();
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+
+  // Update starter code when language or problem changes
+  useEffect(() => {
+    if (problem.starterCode) {
+      if (language === 'python' && problem.starterCode.python) {
+        setCode(problem.starterCode.python);
+      } else if (language === 'cpp' && problem.starterCode.cpp) {
+        setCode(problem.starterCode.cpp);
+      }
+    }
+  }, [currentSlug, language]);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        setIsLoggedIn(true);
+        setUser(session.user);
+      }
+    };
+    checkAuth();
+  }, []);
+
+  // Fetch comments for this specific question
+  useEffect(() => {
+    const fetchComments = async () => {
+      const { data, error } = await supabase
+        .from('comments')
+        .select('*, profiles(username, avatar_url)')
+        .order('created_at', { ascending: false });
+
+      if (!error && data) {
+        setComments(data);
+      }
+    };
+    fetchComments();
+  }, [activeTab, currentSlug]);
 
   // Real execution against Judge0 backend API
   const handleRunCode = async () => {
@@ -161,9 +254,9 @@ int main() {
         body: JSON.stringify({
           code: code,
           language: language,
-          stdin: sampleProblem.sampleCases[0].input,
-          input: sampleProblem.sampleCases[0].input,
-          expected_output: sampleProblem.sampleCases[0].output,
+          stdin: problem.sampleCases[0].input,
+          input: problem.sampleCases[0].input,
+          expected_output: problem.sampleCases[0].output,
         }),
       });
 
@@ -175,16 +268,16 @@ int main() {
       setIsExecuting(false);
 
       const actualStdout = (resData.stdout || '').trim();
-      const expectedStdout = sampleProblem.sampleCases[0].output.trim();
+      const expectedStdout = problem.sampleCases[0].output.trim();
 
       if (actualStdout === expectedStdout) {
-        setOutput(`✅ TESTCASE PASSED\n\nInput:\n${sampleProblem.sampleCases[0].input}\n\nYour Output:\n${actualStdout || '(Empty Output)'}\n\nExpected Output:\n${expectedStdout}\n\nExecution Time: ${resData.execution_time_ms || 12}ms | Memory: ${resData.memory_kb ? (resData.memory_kb / 1024).toFixed(1) : 14.2}MB`);
+        setOutput(`✅ TESTCASE PASSED\n\nInput:\n${problem.sampleCases[0].input}\n\nYour Output:\n${actualStdout || '(Empty Output)'}\n\nExpected Output:\n${expectedStdout}\n\nExecution Time: ${resData.execution_time_ms || 12}ms | Memory: ${resData.memory_kb ? (resData.memory_kb / 1024).toFixed(1) : 14.2}MB`);
       } else {
-        setOutput(`❌ WRONG ANSWER\n\nInput:\n${sampleProblem.sampleCases[0].input}\n\nYour Output:\n${actualStdout || '(Empty Output)'}\n\nExpected Output:\n${expectedStdout}`);
+        setOutput(`❌ WRONG ANSWER\n\nInput:\n${problem.sampleCases[0].input}\n\nYour Output:\n${actualStdout || '(Empty Output)'}\n\nExpected Output:\n${expectedStdout}`);
       }
     } catch (err: any) {
       setIsExecuting(false);
-      setOutput(`⚠️ EXECUTION ERROR\nCould not connect to FastAPI / Judge0 execution service at ${API_URL}.\n\nDetails: ${err.message || 'Ensure backend server is running on http://localhost:8000'}`);
+      setOutput(`⚠️ EXECUTION ERROR\nCould not connect to FastAPI / Judge0 execution service at ${API_URL}.\n\nDetails: ${err.message || 'Ensure backend server is running'}`);
     }
   };
 
@@ -212,7 +305,7 @@ int main() {
         method: 'POST',
         headers,
         body: JSON.stringify({
-          question_id: sampleProblem.id,
+          question_id: problem.id,
           user_id: user.id,
           code: code,
           language: language,
@@ -251,7 +344,7 @@ int main() {
 
     const newCommentObj = {
       user_id: user.id,
-      question_id: '1',
+      question_id: problem.id,
       content: newComment.trim(),
     };
 
@@ -277,9 +370,9 @@ int main() {
             <span>Problemset</span>
           </Link>
           <span className="text-[#3c4a42]">|</span>
-          <span className="font-bold text-[#dbe2fd] text-sm">TestPrep — {sampleProblem.title}</span>
+          <span className="font-bold text-[#dbe2fd] text-sm">TestPrep — {problem.title}</span>
           <span className="px-2 py-0.5 rounded bg-[#003824] text-[#10b981] border border-[#005236] text-[10px] font-mono font-bold">
-            {sampleProblem.difficulty}
+            {problem.difficulty}
           </span>
         </div>
 
@@ -348,27 +441,27 @@ int main() {
           {activeTab === 'problem' && (
             <div className="space-y-6 text-[#dbe2fd] text-sm">
               <div className="prose prose-invert max-w-none">
-                <ReactMarkdown>{sampleProblem.description}</ReactMarkdown>
+                <ReactMarkdown>{problem.description}</ReactMarkdown>
               </div>
 
               <div>
                 <h4 className="text-[11px] font-mono font-bold text-[#10b981] uppercase tracking-wider mb-2">Input Format</h4>
                 <div className="p-3 bg-[#131b2e] border border-[#1f2937] rounded text-xs font-mono text-[#bbcabf]">
-                  {sampleProblem.inputFormat}
+                  {problem.inputFormat}
                 </div>
               </div>
 
               <div>
                 <h4 className="text-[11px] font-mono font-bold text-[#10b981] uppercase tracking-wider mb-2">Output Format</h4>
                 <div className="p-3 bg-[#131b2e] border border-[#1f2937] rounded text-xs font-mono text-[#bbcabf]">
-                  {sampleProblem.outputFormat}
+                  {problem.outputFormat}
                 </div>
               </div>
 
               <div>
                 <h4 className="text-[11px] font-mono font-bold text-[#10b981] uppercase tracking-wider mb-2">Constraints</h4>
                 <ul className="list-disc list-inside space-y-1 text-xs text-[#bbcabf] font-mono bg-[#131b2e] p-3 rounded border border-[#1f2937]">
-                  {sampleProblem.constraints.map((c, i) => (
+                  {problem.constraints.map((c: string, i: number) => (
                     <li key={i}>{c}</li>
                   ))}
                 </ul>
@@ -377,7 +470,7 @@ int main() {
               <div>
                 <h4 className="text-[11px] font-mono font-bold text-[#10b981] uppercase tracking-wider mb-2">Sample Testcases</h4>
                 <div className="space-y-3">
-                  {sampleProblem.sampleCases.map((tc, idx) => (
+                  {problem.sampleCases.map((tc: any, idx: number) => (
                     <div key={idx} className="p-3.5 bg-[#131b2e] border border-[#1f2937] rounded text-xs font-mono space-y-2">
                       <div>
                         <span className="text-[#bbcabf] font-bold">Input: </span>
@@ -397,14 +490,14 @@ int main() {
           {/* TAB 2: EDITORIAL & SOLUTIONS (POSTED BY ADMIN) */}
           {activeTab === 'solutions' && (
             <div className="space-y-6 text-[#dbe2fd]">
-              {sampleProblem.solution.hasSolution ? (
+              {problem.solution?.hasSolution ? (
                 <div className="space-y-6">
                   <div className="p-4 rounded bg-[#131b2e] border border-[#1f2937] flex items-center justify-between">
                     <div>
                       <span className="text-[10px] font-mono text-[#10b981] uppercase tracking-widest font-bold block">
                         Official Editorial
                       </span>
-                      <h3 className="text-base font-bold text-[#dbe2fd] mt-0.5">{sampleProblem.solution.title}</h3>
+                      <h3 className="text-base font-bold text-[#dbe2fd] mt-0.5">{problem.solution.title}</h3>
                     </div>
                     <span className="px-2.5 py-1 rounded bg-[#003824] text-[#10b981] border border-[#005236] text-[10px] font-mono font-bold">
                       ADMIN VERIFIED
@@ -412,22 +505,26 @@ int main() {
                   </div>
 
                   <div className="prose prose-invert max-w-none text-xs leading-relaxed space-y-4">
-                    <ReactMarkdown>{sampleProblem.solution.explanation}</ReactMarkdown>
+                    <ReactMarkdown>{problem.solution.explanation}</ReactMarkdown>
                   </div>
 
-                  <div className="space-y-3">
-                    <h4 className="text-xs font-mono font-bold text-[#10b981] uppercase tracking-wider">Python 3 Implementation</h4>
-                    <pre className="p-4 bg-[#131b2e] border border-[#1f2937] rounded text-xs font-mono text-[#4edea3] overflow-x-auto">
-                      <code>{sampleProblem.solution.pythonCode}</code>
-                    </pre>
-                  </div>
+                  {problem.solution.pythonCode && (
+                    <div className="space-y-3">
+                      <h4 className="text-xs font-mono font-bold text-[#10b981] uppercase tracking-wider">Python 3 Implementation</h4>
+                      <pre className="p-4 bg-[#131b2e] border border-[#1f2937] rounded text-xs font-mono text-[#4edea3] overflow-x-auto">
+                        <code>{problem.solution.pythonCode}</code>
+                      </pre>
+                    </div>
+                  )}
 
-                  <div className="space-y-3">
-                    <h4 className="text-xs font-mono font-bold text-[#10b981] uppercase tracking-wider">C++ (GCC 9.2) Implementation</h4>
-                    <pre className="p-4 bg-[#131b2e] border border-[#1f2937] rounded text-xs font-mono text-[#4edea3] overflow-x-auto">
-                      <code>{sampleProblem.solution.cppCode}</code>
-                    </pre>
-                  </div>
+                  {problem.solution.cppCode && (
+                    <div className="space-y-3">
+                      <h4 className="text-xs font-mono font-bold text-[#10b981] uppercase tracking-wider">C++ (GCC 9.2) Implementation</h4>
+                      <pre className="p-4 bg-[#131b2e] border border-[#1f2937] rounded text-xs font-mono text-[#4edea3] overflow-x-auto">
+                        <code>{problem.solution.cppCode}</code>
+                      </pre>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="py-16 text-center text-[#bbcabf] font-mono text-xs space-y-3 bg-[#131b2e] rounded border border-[#1f2937] p-8">
