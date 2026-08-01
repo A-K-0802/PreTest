@@ -149,10 +149,10 @@ int main() {
     }
   };
 
-  // Real execution against backend / Judge0 API
+  // Real execution against Judge0 backend API
   const handleRunCode = async () => {
     setIsExecuting(true);
-    setOutput('Compiling and executing code against sample testcase...');
+    setOutput('Compiling and executing code with Judge0 sandbox...');
 
     try {
       const response = await fetch(`${API_URL}/execution/run`, {
@@ -167,28 +167,23 @@ int main() {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error(`Execution Service HTTP Error: ${response.statusText}`);
       }
 
       const resData = await response.json();
       setIsExecuting(false);
 
-      if (resData.verdict === 'ACCEPTED') {
-        setOutput(`✅ TESTCASE PASSED\n\nInput:\n${sampleProblem.sampleCases[0].input}\n\nYour Output:\n${resData.stdout || '(Empty Output)'}\n\nExpected Output:\n${sampleProblem.sampleCases[0].output}\n\nExecution Time: ${resData.execution_time_ms || 15}ms | Memory: ${resData.memory_kb ? (resData.memory_kb / 1024).toFixed(1) : 14.2}MB`);
-      } else if (resData.verdict === 'WRONG_ANSWER') {
-        setOutput(`❌ WRONG ANSWER\n\nInput:\n${sampleProblem.sampleCases[0].input}\n\nYour Output:\n${resData.stdout || '(Empty Output)'}\n\nExpected Output:\n${sampleProblem.sampleCases[0].output}`);
+      const actualStdout = (resData.stdout || '').trim();
+      const expectedStdout = sampleProblem.sampleCases[0].output.trim();
+
+      if (actualStdout === expectedStdout) {
+        setOutput(`✅ TESTCASE PASSED\n\nInput:\n${sampleProblem.sampleCases[0].input}\n\nYour Output:\n${actualStdout || '(Empty Output)'}\n\nExpected Output:\n${expectedStdout}\n\nExecution Time: ${resData.execution_time_ms || 12}ms | Memory: ${resData.memory_kb ? (resData.memory_kb / 1024).toFixed(1) : 14.2}MB`);
       } else {
-        setOutput(`⚠️ ${resData.verdict}\n\nError / Output:\n${resData.error_message || resData.stderr || resData.compile_output || resData.stdout || 'Execution error.'}`);
+        setOutput(`❌ WRONG ANSWER\n\nInput:\n${sampleProblem.sampleCases[0].input}\n\nYour Output:\n${actualStdout || '(Empty Output)'}\n\nExpected Output:\n${expectedStdout}`);
       }
     } catch (err: any) {
       setIsExecuting(false);
-      // Fallback local verification if backend API is offline during local testing
-      const trimmedCode = code.trim();
-      if (trimmedCode.includes('cin') || trimmedCode.includes('sys.stdin') || trimmedCode.includes('solve')) {
-        setOutput(`✅ Sample Case 1 Passed!\nInput:\n4\n2 7 11 15\n9\n\nYour Output:\n0 1\n\nExpected Output:\n0 1\nExecution Time: 18ms | Memory: 14.8MB`);
-      } else {
-        setOutput(`❌ WRONG ANSWER\nInput:\n4\n2 7 11 15\n9\n\nYour Output:\n${trimmedCode.substring(0, 30)}...\n\nExpected Output:\n0 1\n\nNote: Make sure to read stdin input and print expected stdout format!`);
-      }
+      setOutput(`⚠️ EXECUTION ERROR\nCould not connect to FastAPI / Judge0 execution service at ${API_URL}.\n\nDetails: ${err.message || 'Ensure backend server is running on http://localhost:8000'}`);
     }
   };
 
@@ -202,9 +197,19 @@ int main() {
     setOutput('Submitting solution to Judge0 evaluation engine...');
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const response = await fetch(`${API_URL}/execution/submit`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           question_id: sampleProblem.id,
           user_id: user.id,
@@ -214,26 +219,21 @@ int main() {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errText = await response.text();
+        throw new Error(`Submission API HTTP ${response.status}: ${errText || response.statusText}`);
       }
 
       const resData = await response.json();
       setIsExecuting(false);
 
       if (resData.verdict === 'ACCEPTED') {
-        setOutput(`🎉 ACCEPTED\nAll hidden testcases passed successfully!\nRuntime: ${resData.execution_time_ms || 34}ms\nMemory: ${resData.memory_kb ? (resData.memory_kb / 1024).toFixed(1) : 16.1}MB`);
+        setOutput(`🎉 ACCEPTED\nAll testcases passed successfully!\nPassed: ${resData.passed_cases || 1}/${resData.total_cases || 1}\nRuntime: ${resData.execution_time_ms || 12}ms\nMemory: ${resData.memory_kb ? (resData.memory_kb / 1024).toFixed(1) : 14.1}MB`);
       } else {
-        setOutput(`❌ ${resData.verdict}\n${resData.error_message || 'Evaluation failed on testcase.'}`);
+        setOutput(`❌ ${resData.verdict}\nPassed: ${resData.passed_cases || 0}/${resData.total_cases || 1}\n${resData.error_message || 'Evaluation failed on testcase.'}`);
       }
     } catch (err: any) {
       setIsExecuting(false);
-      // Local fallback evaluation for demonstration
-      const trimmedCode = code.trim();
-      if (trimmedCode.includes('cin') || trimmedCode.includes('sys.stdin') || trimmedCode.includes('solve')) {
-        setOutput(`🎉 ACCEPTED\nAll 45/45 testcases passed!\nRuntime: 34ms (Beats 89.2% of Python3 submissions)\nMemory: 16.1MB (Beats 78.4% of submissions)`);
-      } else {
-        setOutput(`❌ WRONG ANSWER\nEvaluation failed on testcase 1/45.\nYour code output did not match expected problem output format.`);
-      }
+      setOutput(`⚠️ SUBMISSION SERVICE ERROR\nFailed to evaluate solution via Judge0.\n\nDetails: ${err.message || 'Ensure backend server is active.'}`);
     }
   };
 
@@ -261,17 +261,6 @@ int main() {
 
     if (!error && data) {
       setComments([data[0], ...comments]);
-      setNewComment('');
-    } else {
-      setComments([
-        {
-          id: Date.now().toString(),
-          content: newComment.trim(),
-          created_at: new Date().toISOString(),
-          profiles: { username: user.email?.split('@')[0] || 'You' }
-        },
-        ...comments
-      ]);
       setNewComment('');
     }
     setPostingComment(false);
@@ -301,7 +290,7 @@ int main() {
             className="bg-[#131b2e] border border-[#3c4a42] rounded text-xs font-mono font-semibold px-3 py-1.5 text-[#dbe2fd] focus:outline-none focus:border-[#10b981]"
           >
             <option value="python">Python 3</option>
-            <option value="cpp">C++ (GCC 13)</option>
+            <option value="cpp">C++ (GCC 9.2)</option>
             <option value="javascript">JavaScript (Node.js)</option>
             <option value="java">Java 17</option>
           </select>
@@ -433,7 +422,7 @@ int main() {
                   </div>
 
                   <div className="space-y-3">
-                    <h4 className="text-xs font-mono font-bold text-[#10b981] uppercase tracking-wider">C++ (GCC 13) Implementation</h4>
+                    <h4 className="text-xs font-mono font-bold text-[#10b981] uppercase tracking-wider">C++ (GCC 9.2) Implementation</h4>
                     <pre className="p-4 bg-[#131b2e] border border-[#1f2937] rounded text-xs font-mono text-[#4edea3] overflow-x-auto">
                       <code>{sampleProblem.solution.cppCode}</code>
                     </pre>
@@ -537,7 +526,7 @@ int main() {
               </span>
               {isExecuting && (
                 <span className="text-[#10b981] animate-pulse flex items-center gap-1">
-                  <Clock className="w-3 h-3" /> Evaluating...
+                  <Clock className="w-3 h-3" /> Evaluating with Judge0...
                 </span>
               )}
             </div>

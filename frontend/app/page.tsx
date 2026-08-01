@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { Question, Difficulty } from '@/types';
 
-// Baseline problem dataset present on the website
+// Baseline problem dataset with fixed static timestamps for SSR hydration safety
 const INITIAL_PROBLEMS: Question[] = [
   {
     id: '1',
@@ -31,8 +31,8 @@ const INITIAL_PROBLEMS: Question[] = [
     output_format: 'Array of two indices',
     sample_cases: [],
     tags: ['Array', 'Hash Table'],
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
   },
   {
     id: '2',
@@ -45,8 +45,8 @@ const INITIAL_PROBLEMS: Question[] = [
     output_format: 'Sum linked list head.',
     sample_cases: [],
     tags: ['Linked List', 'Math', 'Two Pointers'],
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
   },
   {
     id: '3',
@@ -59,8 +59,8 @@ const INITIAL_PROBLEMS: Question[] = [
     output_format: 'Integer representing maximum length',
     sample_cases: [],
     tags: ['Hash Table', 'String', 'Sliding Window'],
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
   },
   {
     id: '4',
@@ -73,8 +73,8 @@ const INITIAL_PROBLEMS: Question[] = [
     output_format: 'Integer volume',
     sample_cases: [],
     tags: ['Array', 'Two Pointers', 'Dynamic Programming', 'Stack'],
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
   },
   {
     id: '5',
@@ -87,8 +87,8 @@ const INITIAL_PROBLEMS: Question[] = [
     output_format: 'Boolean (true/false)',
     sample_cases: [],
     tags: ['String', 'Stack'],
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
   },
   {
     id: '6',
@@ -101,16 +101,15 @@ const INITIAL_PROBLEMS: Question[] = [
     output_format: 'Merged sorted linked list',
     sample_cases: [],
     tags: ['Linked List', 'Divide and Conquer', 'Heap'],
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
   },
 ];
 
 export default function Home() {
-  const [problems, setProblems] = useState<Question[]>(INITIAL_PROBLEMS);
+  const [problems] = useState<Question[]>(INITIAL_PROBLEMS);
   const [search, setSearch] = useState('');
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('ALL');
-  const [selectedTag, setSelectedTag] = useState<string>('ALL');
   const [user, setUser] = useState<any>(null);
   const [userRole, setUserRole] = useState<string>('LEARNER');
   const [loadingUser, setLoadingUser] = useState(true);
@@ -171,9 +170,8 @@ export default function Home() {
       problem.tags.some((tag) => tag.toLowerCase().includes(search.toLowerCase()));
     
     const matchesDifficulty = selectedDifficulty === 'ALL' || problem.difficulty === selectedDifficulty;
-    const matchesTag = selectedTag === 'ALL' || problem.tags.includes(selectedTag);
 
-    return matchesSearch && matchesDifficulty && matchesTag;
+    return matchesSearch && matchesDifficulty;
   });
 
   const getDifficultyBadge = (difficulty: Difficulty) => {
@@ -363,6 +361,7 @@ export default function Home() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search problems by title or topic..."
+              suppressHydrationWarning
               className="w-full bg-[#0b1326] border border-[#3c4a42] rounded px-3.5 pl-10 py-2 text-xs text-[#dbe2fd] placeholder:text-[#bbcabf]/60 focus:outline-none focus:border-[#10b981] transition-all font-mono"
             />
           </div>
@@ -375,6 +374,7 @@ export default function Home() {
               <button
                 key={diff}
                 onClick={() => setSelectedDifficulty(diff)}
+                suppressHydrationWarning
                 className={`px-3 py-1 rounded text-xs font-semibold font-mono transition-all shrink-0 ${
                   selectedDifficulty === diff
                     ? 'bg-[#10b981] text-[#0b1326]'
