@@ -107,7 +107,7 @@ const INITIAL_PROBLEMS: Question[] = [
 ];
 
 export default function Home() {
-  const [problems] = useState<Question[]>(INITIAL_PROBLEMS);
+  const [problems, setProblems] = useState<Question[]>(INITIAL_PROBLEMS);
   const [search, setSearch] = useState('');
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('ALL');
   const [user, setUser] = useState<any>(null);
@@ -115,6 +115,43 @@ export default function Home() {
   const [loadingUser, setLoadingUser] = useState(true);
 
   const supabase = createClient();
+
+  // Dynamically load active questions from Supabase + custom_questions, filtering out deleted ones
+  useEffect(() => {
+    const loadDynamicQuestions = async () => {
+      const deletedIds: string[] = JSON.parse(localStorage.getItem('deleted_question_ids') || '[]');
+      const customQuestions: any[] = JSON.parse(localStorage.getItem('custom_questions') || '[]');
+
+      let baseList = [...INITIAL_PROBLEMS];
+
+      // Query Supabase questions table
+      const { data: dbData, error } = await supabase
+        .from('questions')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      if (!error && dbData && dbData.length > 0) {
+        const dbSlugs = new Set(dbData.map((q: any) => q.title_slug));
+        baseList = [...dbData, ...baseList.filter((q) => !dbSlugs.has(q.title_slug))];
+      }
+
+      // Merge custom created questions
+      if (customQuestions.length > 0) {
+        const existingIds = new Set(baseList.map((q) => q.id));
+        customQuestions.forEach((cq) => {
+          if (!existingIds.has(cq.id)) {
+            baseList.push(cq);
+          }
+        });
+      }
+
+      // Exclude deleted questions
+      const active = baseList.filter((q) => !deletedIds.includes(q.id));
+      setProblems(active);
+    };
+
+    loadDynamicQuestions();
+  }, []);
 
   useEffect(() => {
     const fetchUserAndRole = async (session: any) => {
@@ -138,12 +175,12 @@ export default function Home() {
       setLoadingUser(false);
     };
 
-    // 1. Initial session check
+    // Check initial auth state
     supabase.auth.getSession().then(({ data: { session } }) => {
       fetchUserAndRole(session);
     });
 
-    // 2. Real-time auth listener for OAuth callback persistence
+    // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       fetchUserAndRole(session);
     });
@@ -159,18 +196,10 @@ export default function Home() {
     setUserRole('LEARNER');
   };
 
-  // Compute exact real-time problem metrics dynamically from current dataset
-  const totalCount = problems.length;
-  const easyCount = problems.filter((p) => p.difficulty === 'EASY').length;
-  const mediumCount = problems.filter((p) => p.difficulty === 'MEDIUM').length;
-  const hardCount = problems.filter((p) => p.difficulty === 'HARD').length;
-
   const filteredProblems = problems.filter((problem) => {
     const matchesSearch = problem.title.toLowerCase().includes(search.toLowerCase()) ||
-      problem.tags.some((tag) => tag.toLowerCase().includes(search.toLowerCase()));
-    
+      (problem.tags && problem.tags.some((tag) => tag.toLowerCase().includes(search.toLowerCase())));
     const matchesDifficulty = selectedDifficulty === 'ALL' || problem.difficulty === selectedDifficulty;
-
     return matchesSearch && matchesDifficulty;
   });
 
@@ -187,83 +216,57 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-[#0b1326] text-[#dbe2fd] flex flex-col font-sans selection:bg-[#10b981] selection:text-[#0b1326]">
-      {/* Top Header */}
-      <header className="border-b border-[#1f2937] bg-[#0b1326]/90 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-[1440px] mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center space-x-6">
-            <Link href="/" className="flex items-center space-x-2.5 group">
-              <div className="w-9 h-9 rounded bg-[#10b981] text-[#0b1326] flex items-center justify-center font-bold shadow-lg shadow-[#10b981]/20 group-hover:bg-[#4edea3] transition-all">
-                <Terminal className="w-5 h-5 stroke-[2.5]" />
-              </div>
-              <span className="font-bold text-xl tracking-tight text-[#dbe2fd]">
-                TestPrep <span className="text-xs px-2 py-0.5 rounded bg-[#171f33] text-[#10b981] border border-[#3c4a42] font-mono">v1.0</span>
-              </span>
-            </Link>
-
-            <nav className="hidden md:flex items-center space-x-6 text-sm font-medium text-[#bbcabf]">
-              <Link href="/" className="text-[#10b981] font-semibold flex items-center gap-1.5">
-                <span>Problemset</span>
-              </Link>
-              {user && (
-                <>
-                  <Link href="/dashboard" className="hover:text-[#10b981] transition-colors">
-                    Dashboard
-                  </Link>
-                  <Link href="/submissions" className="hover:text-[#10b981] transition-colors">
-                    Submissions
-                  </Link>
-                  {/* ADMIN DASHBOARD BUTTON FOR ADMIN USERS */}
-                  {userRole === 'ADMIN' && (
-                    <Link
-                      href="/admin"
-                      className="text-[#10b981] bg-[#003824] border border-[#005236] px-3 py-1 rounded text-xs font-mono font-bold hover:bg-[#005236] transition-all flex items-center gap-1.5 shadow-md shadow-[#10b981]/10"
-                    >
-                      <ShieldCheck className="w-4 h-4" />
-                      <span>Admin Control Center</span>
-                    </Link>
-                  )}
-                </>
-              )}
-            </nav>
-          </div>
+      {/* Top Navbar */}
+      <header className="border-b border-[#1f2937] bg-[#0b1326] sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+          <Link href="/" className="flex items-center space-x-3">
+            <div className="w-9 h-9 rounded bg-[#10b981] text-[#0b1326] flex items-center justify-center font-bold shadow-lg shadow-[#10b981]/20">
+              <Terminal className="w-5 h-5 stroke-[2.5]" />
+            </div>
+            <span className="font-extrabold text-xl tracking-tight text-[#10b981]">
+              TestPrep <span className="text-xs text-[#dbe2fd] font-mono font-normal">DSA Platform</span>
+            </span>
+          </Link>
 
           <div className="flex items-center space-x-4">
             {loadingUser ? (
-              <div className="h-9 w-24 bg-[#171f33] rounded animate-pulse" />
+              <div className="text-xs font-mono text-[#bbcabf] animate-pulse">Checking Auth...</div>
             ) : user ? (
-              <div className="flex items-center space-x-4">
-                <Link
-                  href={userRole === 'ADMIN' ? '/admin' : '/dashboard'}
-                  className="flex items-center space-x-2.5 bg-[#171f33] border border-[#3c4a42] hover:border-[#10b981] px-3.5 py-1.5 rounded text-xs font-medium transition-all"
-                >
-                  <div className="w-6 h-6 rounded bg-[#10b981] text-[#0b1326] flex items-center justify-center font-bold font-mono">
-                    {user.email?.charAt(0).toUpperCase() || 'U'}
-                  </div>
-                  <span className="text-[#dbe2fd] font-mono">{user.email?.split('@')[0]}</span>
-                  {userRole === 'ADMIN' && (
-                    <span className="text-[10px] bg-[#10b981] text-[#0b1326] font-bold px-1.5 py-0.5 rounded font-mono uppercase">ADMIN</span>
-                  )}
-                </Link>
+              <div className="flex items-center space-x-3">
+                <span className="text-xs font-mono text-[#bbcabf] bg-[#131b2e] px-3 py-1.5 rounded border border-[#3c4a42]">
+                  {user.email}
+                </span>
+
+                {userRole === 'ADMIN' && (
+                  <Link
+                    href="/admin"
+                    className="bg-[#10b981] hover:bg-[#4edea3] text-[#0b1326] text-xs font-mono font-bold px-3.5 py-1.5 rounded shadow-md shadow-[#10b981]/20 transition-all flex items-center space-x-1.5"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <span>Admin Portal</span>
+                  </Link>
+                )}
+
                 <button
                   onClick={handleSignOut}
-                  className="text-xs font-semibold text-[#bbcabf] hover:text-rose-400 p-2 transition-colors"
-                  title="Sign Out"
+                  className="text-xs font-mono text-[#bbcabf] hover:text-[#f87171] bg-[#131b2e] hover:bg-[#450a0a]/40 border border-[#3c4a42] hover:border-[#991b1b] px-3 py-1.5 rounded transition-all flex items-center space-x-1"
                 >
-                  <LogOut className="w-4 h-4" />
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Sign Out</span>
                 </button>
               </div>
             ) : (
               <div className="flex items-center space-x-3">
                 <Link
                   href="/login"
-                  className="text-xs font-semibold text-[#dbe2fd] hover:text-[#10b981] px-3.5 py-2 transition-colors flex items-center gap-1.5 font-mono"
+                  className="text-xs font-mono font-semibold text-[#dbe2fd] hover:text-[#10b981] px-3 py-1.5 transition-colors flex items-center space-x-1"
                 >
                   <LogIn className="w-3.5 h-3.5" />
                   <span>Sign In</span>
                 </Link>
                 <Link
                   href="/signup"
-                  className="text-xs font-bold text-[#0b1326] bg-[#10b981] hover:bg-[#4edea3] px-4 py-2 rounded shadow-md shadow-[#10b981]/20 transition-all flex items-center gap-1.5 font-mono"
+                  className="bg-[#10b981] hover:bg-[#4edea3] text-[#0b1326] text-xs font-mono font-bold px-3.5 py-1.5 rounded shadow-md shadow-[#10b981]/20 transition-all flex items-center space-x-1"
                 >
                   <UserPlus className="w-3.5 h-3.5" />
                   <span>Get Started</span>
@@ -274,86 +277,26 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Main Workspace Container */}
-      <main className="flex-1 max-w-[1440px] mx-auto px-6 py-8 w-full">
-        {/* Admin Notification Banner if User is Admin */}
-        {userRole === 'ADMIN' && (
-          <div className="mb-6 p-4 rounded bg-[#003824] border border-[#005236] flex items-center justify-between text-xs text-[#10b981] font-mono shadow-lg">
-            <div className="flex items-center space-x-3">
-              <ShieldCheck className="w-5 h-5 shrink-0" />
-              <span>
-                <strong className="text-[#dbe2fd]">Admin Privilege Detected:</strong> You have full control to create, edit, or delete questions and testcases.
-              </span>
+      {/* Main Content Area */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-6 py-8 space-y-8">
+        {/* Hero Banner */}
+        <div className="relative overflow-hidden rounded bg-[#131b2e] border border-[#1f2937] p-8 md:p-10 shadow-2xl">
+          <div className="relative z-10 max-w-2xl space-y-4">
+            <div className="inline-flex items-center space-x-2 px-3 py-1 rounded bg-[#003824] border border-[#005236] text-[#10b981] text-xs font-mono font-semibold">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Production DSA Platform Active</span>
             </div>
-            <Link
-              href="/admin"
-              className="bg-[#10b981] hover:bg-[#4edea3] text-[#0b1326] font-bold px-3.5 py-1.5 rounded transition-all flex items-center gap-1 shrink-0 ml-4"
-            >
-              <LayoutDashboard className="w-3.5 h-3.5" />
-              <span>Open Admin Suite →</span>
-            </Link>
-          </div>
-        )}
-
-        {/* Guest Notification Banner */}
-        {!user && (
-          <div className="mb-6 p-4 rounded bg-[#131b2e] border border-[#3c4a42] flex items-center justify-between text-xs text-[#bbcabf]">
-            <div className="flex items-center space-x-3">
-              <span className="w-2 h-2 rounded-full bg-[#10b981] animate-ping" />
-              <span>
-                <strong className="text-[#dbe2fd]">Guest Mode Active:</strong> You can explore problems and test code in the IDE. <Link href="/signup" className="text-[#10b981] hover:underline font-semibold">Create an account</Link> to submit solutions and track progress.
-              </span>
-            </div>
-            <Link
-              href="/login"
-              className="text-[#10b981] hover:text-[#4edea3] font-bold underline shrink-0 ml-4 font-mono"
-            >
-              Sign In →
-            </Link>
-          </div>
-        )}
-
-        {/* Dynamic Header Stats Bar (Computed directly from dataset) */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-[#171f33] border border-[#1f2937] p-5 rounded flex items-center justify-between">
-            <div>
-              <span className="text-[11px] font-mono uppercase tracking-widest text-[#10b981]">Total Problems</span>
-              <div className="text-3xl font-extrabold text-[#dbe2fd] font-mono mt-1">{totalCount}</div>
-              <p className="text-xs text-[#bbcabf] font-mono mt-0.5">Active Questions</p>
-            </div>
-            <Code2 className="w-8 h-8 text-[#10b981]/40" />
-          </div>
-
-          <div className="bg-[#171f33] border border-[#1f2937] p-5 rounded flex items-center justify-between">
-            <div>
-              <span className="text-[11px] font-mono uppercase tracking-widest text-emerald-400">Easy</span>
-              <div className="text-3xl font-extrabold text-emerald-400 font-mono mt-1">{easyCount}</div>
-              <p className="text-xs text-[#bbcabf] font-mono mt-0.5">Fundamentals</p>
-            </div>
-            <Sparkles className="w-8 h-8 text-emerald-400/40" />
-          </div>
-
-          <div className="bg-[#171f33] border border-[#1f2937] p-5 rounded flex items-center justify-between">
-            <div>
-              <span className="text-[11px] font-mono uppercase tracking-widest text-amber-400">Medium</span>
-              <div className="text-3xl font-extrabold text-amber-400 font-mono mt-1">{mediumCount}</div>
-              <p className="text-xs text-[#bbcabf] font-mono mt-0.5">Core Practice</p>
-            </div>
-            <Flame className="w-8 h-8 text-amber-400/40" />
-          </div>
-
-          <div className="bg-[#171f33] border border-[#1f2937] p-5 rounded flex items-center justify-between">
-            <div>
-              <span className="text-[11px] font-mono uppercase tracking-widest text-rose-400">Hard</span>
-              <div className="text-3xl font-extrabold text-rose-400 font-mono mt-1">{hardCount}</div>
-              <p className="text-xs text-[#bbcabf] font-mono mt-0.5">Advanced DSA</p>
-            </div>
-            <Award className="w-8 h-8 text-rose-400/40" />
+            <h1 className="text-3xl md:text-4xl font-extrabold text-[#dbe2fd] tracking-tight">
+              Master Technical Interviews & Algorithms
+            </h1>
+            <p className="text-sm text-[#bbcabf] font-mono leading-relaxed">
+              Execute Python, C++, Java, and JavaScript solutions live inside our sandboxed Judge0 engine.
+            </p>
           </div>
         </div>
 
-        {/* Filter Controls Bar */}
-        <div className="bg-[#131b2e] border border-[#1f2937] p-4 rounded mb-6 flex flex-col md:flex-row gap-4 items-center justify-between">
+        {/* Filter Controls */}
+        <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-[#131b2e] p-4 rounded border border-[#1f2937]">
           <div className="relative w-full md:w-96">
             <Search className="w-4 h-4 text-[#bbcabf] absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
@@ -361,24 +304,20 @@ export default function Home() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search problems by title or topic..."
-              suppressHydrationWarning
-              className="w-full bg-[#0b1326] border border-[#3c4a42] rounded px-3.5 pl-10 py-2 text-xs text-[#dbe2fd] placeholder:text-[#bbcabf]/60 focus:outline-none focus:border-[#10b981] transition-all font-mono"
+              className="w-full bg-[#0b1326] border border-[#3c4a42] rounded px-3.5 pl-10 py-2 text-xs text-[#dbe2fd] placeholder:text-[#bbcabf]/50 focus:outline-none focus:border-[#10b981] font-mono"
             />
           </div>
 
-          <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
-            <span className="text-[11px] font-mono uppercase text-[#bbcabf] tracking-widest mr-2 shrink-0">
-              Filter:
-            </span>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-mono uppercase text-[#bbcabf] mr-2">Difficulty:</span>
             {['ALL', 'EASY', 'MEDIUM', 'HARD'].map((diff) => (
               <button
                 key={diff}
                 onClick={() => setSelectedDifficulty(diff)}
-                suppressHydrationWarning
-                className={`px-3 py-1 rounded text-xs font-semibold font-mono transition-all shrink-0 ${
+                className={`px-3 py-1 rounded text-xs font-mono font-semibold transition-all ${
                   selectedDifficulty === diff
                     ? 'bg-[#10b981] text-[#0b1326]'
-                    : 'bg-[#0b1326] text-[#bbcabf] border border-[#3c4a42] hover:text-[#dbe2fd] hover:border-[#10b981]'
+                    : 'bg-[#0b1326] text-[#bbcabf] border border-[#3c4a42] hover:text-[#dbe2fd]'
                 }`}
               >
                 {diff}
@@ -387,7 +326,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* High-Density Problem Set Table */}
+        {/* Problems List Table */}
         <div className="bg-[#131b2e] border border-[#1f2937] rounded overflow-hidden shadow-2xl">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs text-[#dbe2fd]">
@@ -396,37 +335,40 @@ export default function Home() {
                   <th className="py-3.5 px-6">Status</th>
                   <th className="py-3.5 px-6">Title</th>
                   <th className="py-3.5 px-6">Difficulty</th>
-                  <th className="py-3.5 px-6">Topics / Tags</th>
-                  <th className="py-3.5 px-6 text-right">Action</th>
+                  <th className="py-3.5 px-6">Tags</th>
+                  <th className="py-3.5 px-6 text-right">Solve</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#1f2937]/60">
+              <tbody className="divide-y divide-[#1f2937]/60 font-mono">
                 {filteredProblems.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-12 text-center text-[#bbcabf] font-mono">
-                      No problems found matching your filters.
+                    <td colSpan={5} className="py-12 text-center text-[#bbcabf]">
+                      No problems found matching your criteria.
                     </td>
                   </tr>
                 ) : (
                   filteredProblems.map((problem) => (
-                    <tr key={problem.id} className="hover:bg-[#171f33] transition-colors group">
-                      <td className="py-4 px-6 font-mono text-[#bbcabf]">
-                        ⚪ Unsolved
+                    <tr key={problem.id} className="hover:bg-[#171f33] transition-colors">
+                      <td className="py-4 px-6">
+                        <span className="w-2 h-2 rounded-full bg-[#10b981] inline-block" title="Available"></span>
                       </td>
-                      <td className="py-4 px-6 font-semibold text-[#dbe2fd] group-hover:text-[#10b981] transition-colors">
-                        <Link href={`/problems/${problem.title_slug}`} className="flex items-center gap-2">
-                          <span>{problem.title}</span>
+                      <td className="py-4 px-6">
+                        <Link
+                          href={`/problems/${problem.title_slug}`}
+                          className="font-bold text-[#dbe2fd] hover:text-[#10b981] transition-colors"
+                        >
+                          {problem.title}
                         </Link>
                       </td>
                       <td className="py-4 px-6">
-                        <span className={`inline-flex px-2.5 py-0.5 rounded border text-[11px] font-mono font-bold ${getDifficultyBadge(problem.difficulty)}`}>
+                        <span className={`inline-flex px-2 py-0.5 rounded border text-[10px] font-bold ${getDifficultyBadge(problem.difficulty)}`}>
                           {problem.difficulty}
                         </span>
                       </td>
                       <td className="py-4 px-6">
-                        <div className="flex flex-wrap gap-1.5">
-                          {problem.tags.map((tag) => (
-                            <span key={tag} className="px-2 py-0.5 rounded bg-[#0b1326] text-[#bbcabf] border border-[#3c4a42] text-[10px] font-mono">
+                        <div className="flex flex-wrap gap-1">
+                          {problem.tags && problem.tags.map((tag) => (
+                            <span key={tag} className="px-1.5 py-0.5 rounded bg-[#0b1326] text-[#bbcabf] border border-[#3c4a42] text-[10px]">
                               {tag}
                             </span>
                           ))}
@@ -435,7 +377,7 @@ export default function Home() {
                       <td className="py-4 px-6 text-right">
                         <Link
                           href={`/problems/${problem.title_slug}`}
-                          className="inline-flex items-center space-x-1 text-xs font-bold text-[#10b981] hover:text-[#0b1326] hover:bg-[#10b981] border border-[#3c4a42] px-3.5 py-1.5 rounded transition-all font-mono"
+                          className="bg-[#10b981] hover:bg-[#4edea3] text-[#0b1326] font-bold text-[11px] px-3 py-1.5 rounded transition-all inline-flex items-center space-x-1"
                         >
                           <Code2 className="w-3.5 h-3.5" />
                           <span>Solve</span>
