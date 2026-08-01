@@ -161,6 +161,7 @@ int main() {
         body: JSON.stringify({
           code: code,
           language: language,
+          stdin: sampleProblem.sampleCases[0].input,
           input: sampleProblem.sampleCases[0].input,
           expected_output: sampleProblem.sampleCases[0].output,
         }),

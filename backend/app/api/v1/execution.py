@@ -29,7 +29,7 @@ async def run_code(request: RunCodeRequest):
     result = await judge0_service.execute_code(
         language=request.language,
         code=request.code,
-        stdin=request.stdin or "",
+        stdin=request.get_stdin(),
         expected_output=request.expected_output,
     )
 

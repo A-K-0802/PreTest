@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional, List, Union
 from uuid import UUID
 from datetime import datetime
@@ -7,8 +7,12 @@ from app.models.submission import VerdictEnum
 class RunCodeRequest(BaseModel):
     language: str
     code: str
-    stdin: Optional[str] = ""
+    stdin: Optional[str] = Field(default="", alias="stdin")
+    input: Optional[str] = None
     expected_output: Optional[str] = None
+
+    def get_stdin(self) -> str:
+        return self.stdin or self.input or ""
 
 class RunCodeResponse(BaseModel):
     verdict: VerdictEnum
@@ -41,4 +45,4 @@ class SubmissionListItemResponse(BaseModel):
     memory_kb: Optional[int]
     created_at: datetime
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
