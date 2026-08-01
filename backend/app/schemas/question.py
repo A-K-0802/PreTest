@@ -23,6 +23,7 @@ class QuestionUpdate(BaseModel):
     input_format: Optional[str] = None
     output_format: Optional[str] = None
     tags: Optional[List[str]] = None
+    testcases: Optional[List[TestcaseCreate]] = None
 
 class QuestionListItemResponse(BaseModel):
     id: UUID

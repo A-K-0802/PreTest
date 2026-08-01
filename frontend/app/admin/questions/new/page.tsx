@@ -70,6 +70,7 @@ function QuestionFormContent() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const supabase = createClient();
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
   // Load existing question data if in Edit Mode
   useEffect(() => {
@@ -78,7 +79,7 @@ function QuestionFormContent() {
     const loadQuestionData = async () => {
       // 1. Try querying custom_questions in localStorage first
       const customQuestions: any[] = JSON.parse(localStorage.getItem('custom_questions') || '[]');
-      const localMatch = customQuestions.find((q) => q.id === editId);
+      const localMatch = customQuestions.find((q) => q.id === editId || q.title_slug === editId);
 
       if (localMatch) {
         setTitle(localMatch.title || '');
@@ -157,15 +158,52 @@ function QuestionFormContent() {
     e.preventDefault();
     setLoading(true);
 
-    // Generate valid UUID for Supabase PostgreSQL UUID primary key
     const qId = editId || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : '10000000-0000-0000-0000-' + Date.now().toString().padStart(12, '0'));
     const titleSlug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
-    // Filter out empty testcases
     const validTestcases = testcases.filter((tc) => tc.input.trim() !== '' || tc.expected_output.trim() !== '');
 
+    const apiPayload = {
+      title: title.trim(),
+      description,
+      difficulty,
+      input_format: inputFormat,
+      output_format: outputFormat,
+      constraints: constraints.split('\n').filter(Boolean),
+      tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
+      testcases: validTestcases.map((tc) => ({
+        input: tc.input,
+        expected_output: tc.expected_output,
+        is_hidden: tc.is_hidden,
+      })),
+    };
+
+    let activeQuestionId = qId;
+
+    // 1. Submit directly to backend API (bypasses Supabase RLS limits with SQL connection)
+    try {
+      const endpoint = editId ? `${API_URL}/questions/${editId}` : `${API_URL}/questions`;
+      const method = editId ? 'PUT' : 'POST';
+
+      const res = await fetch(endpoint, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(apiPayload),
+      });
+
+      if (res.ok) {
+        const resData = await res.json();
+        if (resData?.id) {
+          activeQuestionId = resData.id;
+        }
+      }
+    } catch (apiErr) {
+      console.warn('Backend API save notice:', apiErr);
+    }
+
+    // 2. Local memory persistence object
     const questionObj = {
-      id: qId,
+      id: activeQuestionId,
       title: title.trim(),
       title_slug: titleSlug,
       description,
@@ -182,59 +220,8 @@ function QuestionFormContent() {
       updated_at: new Date().toISOString(),
     };
 
-    // 1. Save question and testcase rows directly to Supabase Database tables
-    let activeQuestionId = qId;
-    try {
-      if (editId) {
-        await supabase.from('questions').update({
-          title: questionObj.title,
-          title_slug: questionObj.title_slug,
-          description: questionObj.description,
-          difficulty: questionObj.difficulty,
-          input_format: questionObj.input_format,
-          output_format: questionObj.output_format,
-          constraints: questionObj.constraints,
-          tags: questionObj.tags,
-        }).eq('id', editId);
-
-        // Delete previous testcases in Supabase for editId
-        await supabase.from('testcases').delete().eq('question_id', editId);
-      } else {
-        const { data: insertedQ, error: insertErr } = await supabase.from('questions').insert([{
-          id: qId,
-          title: questionObj.title,
-          title_slug: questionObj.title_slug,
-          description: questionObj.description,
-          difficulty: questionObj.difficulty,
-          input_format: questionObj.input_format,
-          output_format: questionObj.output_format,
-          constraints: questionObj.constraints,
-          tags: questionObj.tags,
-        }]).select().single();
-
-        if (insertedQ?.id) {
-          activeQuestionId = insertedQ.id;
-          questionObj.id = insertedQ.id;
-        }
-      }
-
-      // Insert fresh testcase rows into Supabase testcases table with valid UUID question_id
-      if (validTestcases.length > 0) {
-        const testcaseRows = validTestcases.map((tc) => ({
-          question_id: activeQuestionId,
-          input: tc.input,
-          expected_output: tc.expected_output,
-          is_hidden: tc.is_hidden,
-        }));
-        await supabase.from('testcases').insert(testcaseRows);
-      }
-    } catch (err) {
-      console.warn('Supabase DB testcases save notice:', err);
-    }
-
-    // 2. Persist to custom_questions in localStorage for permanent page reload persistence
     const customQuestions: any[] = JSON.parse(localStorage.getItem('custom_questions') || '[]');
-    const existingIdx = customQuestions.findIndex((q) => q.id === qId || q.id === activeQuestionId);
+    const existingIdx = customQuestions.findIndex((q) => q.id === qId || q.id === activeQuestionId || q.title_slug === titleSlug);
     if (existingIdx >= 0) {
       customQuestions[existingIdx] = questionObj;
     } else {

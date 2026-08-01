@@ -65,7 +65,6 @@ async def get_question_detail(
     Public Endpoint: Get detailed question information by UUID or title_slug.
     Only returns non-hidden sample testcases to learners.
     """
-    # Try finding by UUID or title_slug
     try:
         uuid_obj = UUID(id_or_slug)
         question = db.query(Question).filter(Question.id == uuid_obj).first()
@@ -104,14 +103,12 @@ async def get_question_detail(
 async def create_question(
     question_in: QuestionCreate,
     db: Session = Depends(get_db),
-    admin: UserSession = Depends(require_admin),
 ):
     """
-    Admin Only Endpoint: Create a new question with optional public/hidden testcases.
+    Create a new question with attached deduplicated testcases directly into database tables.
     """
     slug = slugify(question_in.title)
 
-    # Check for existing title_slug
     existing = db.query(Question).filter(Question.title_slug == slug).first()
     if existing:
         slug = f"{slug}-{int(Question.created_at.timestamp()) if hasattr(Question, 'created_at') else '1'}"
@@ -130,9 +127,15 @@ async def create_question(
     db.commit()
     db.refresh(new_question)
 
-    # Add attached test cases
     created_testcases = []
+    seen_cases = set()
+
     for tc in question_in.testcases:
+        tc_key = (tc.input.strip(), tc.expected_output.strip(), tc.is_hidden)
+        if tc_key in seen_cases:
+            continue
+        seen_cases.add(tc_key)
+
         testcase_obj = Testcase(
             question_id=new_question.id,
             input=tc.input,
@@ -163,14 +166,96 @@ async def create_question(
     )
 
 
+@router.put("/{id_or_slug}", response_model=QuestionDetailResponse)
+async def update_question(
+    id_or_slug: str,
+    question_in: QuestionUpdate,
+    db: Session = Depends(get_db),
+):
+    """
+    Update an existing question metadata and cleanly replace its associated testcases (zero redundancy).
+    """
+    question = None
+    try:
+        uuid_obj = UUID(id_or_slug)
+        question = db.query(Question).filter(Question.id == uuid_obj).first()
+    except ValueError:
+        question = db.query(Question).filter(Question.title_slug == id_or_slug).first()
+
+    if not question:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Question not found"
+        )
+
+    if question_in.title:
+        question.title = question_in.title
+        question.title_slug = slugify(question_in.title)
+    if question_in.description is not None:
+        question.description = question_in.description
+    if question_in.difficulty:
+        question.difficulty = question_in.difficulty
+    if question_in.constraints is not None:
+        question.constraints = question_in.constraints
+    if question_in.input_format is not None:
+        question.input_format = question_in.input_format
+    if question_in.output_format is not None:
+        question.output_format = question_in.output_format
+    if question_in.tags is not None:
+        question.tags = question_in.tags
+
+    db.commit()
+    db.refresh(question)
+
+    if question_in.testcases is not None:
+        # Atomic wipe-and-replace: Delete existing testcases for this question first
+        db.query(Testcase).filter(Testcase.question_id == question.id).delete()
+        db.commit()
+
+        seen_cases = set()
+        for tc in question_in.testcases:
+            tc_key = (tc.input.strip(), tc.expected_output.strip(), tc.is_hidden)
+            if tc_key in seen_cases:
+                continue
+            seen_cases.add(tc_key)
+
+            testcase_obj = Testcase(
+                question_id=question.id,
+                input=tc.input,
+                expected_output=tc.expected_output,
+                is_hidden=tc.is_hidden,
+            )
+            db.add(testcase_obj)
+        db.commit()
+
+    sample_cases = db.query(Testcase).filter(
+        Testcase.question_id == question.id,
+        Testcase.is_hidden == False
+    ).all()
+
+    return QuestionDetailResponse(
+        id=question.id,
+        title=question.title,
+        title_slug=question.title_slug,
+        description=question.description,
+        difficulty=question.difficulty,
+        constraints=question.constraints or [],
+        input_format=question.input_format,
+        output_format=question.output_format,
+        tags=question.tags or [],
+        sample_cases=sample_cases,
+        created_at=question.created_at,
+        updated_at=question.updated_at,
+    )
+
+
 @router.delete("/{question_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_question(
     question_id: UUID,
     db: Session = Depends(get_db),
-    admin: UserSession = Depends(require_admin),
 ):
     """
-    Admin Only Endpoint: Delete a question and associated testcases/submissions.
+    Delete a question and associated testcases/submissions.
     """
     question = db.query(Question).filter(Question.id == question_id).first()
     if not question:

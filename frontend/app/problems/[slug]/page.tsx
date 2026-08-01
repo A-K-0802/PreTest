@@ -43,8 +43,13 @@ You may assume that each input would have **exactly one solution**, and you may 
       'Only one valid answer exists.',
     ],
     sampleCases: [
-      { input: '4\n2 7 11 15\n9', output: '0 1', expected_output: '0 1' },
-      { input: '3\n3 2 4\n6', output: '1 2', expected_output: '1 2' },
+      { input: '4\n2 7 11 15\n9', output: '0 1', expected_output: '0 1', is_hidden: false },
+      { input: '3\n3 2 4\n6', output: '1 2', expected_output: '1 2', is_hidden: false },
+    ],
+    allTestcases: [
+      { input: '4\n2 7 11 15\n9', output: '0 1', expected_output: '0 1', is_hidden: false },
+      { input: '3\n3 2 4\n6', output: '1 2', expected_output: '1 2', is_hidden: false },
+      { input: '5\n3 2 4 1 9\n10', output: '3 4', expected_output: '3 4', is_hidden: true },
     ],
     starterCode: {
       python: `import sys\n\ndef two_sum(nums, target):\n    # Write your solution here...\n    pass\n\nif __name__ == '__main__':\n    lines = sys.stdin.read().split()\n    if lines:\n        n = int(lines[0])\n        nums = [int(x) for x in lines[1:n+1]]\n        target = int(lines[n+1])\n        ans = two_sum(nums, target)\n        if ans:\n            print(f"{ans[0]} {ans[1]}")\n`,
@@ -69,8 +74,12 @@ You may assume that each input would have **exactly one solution**, and you may 
     outputFormat: 'Print `true` if valid, otherwise `false`',
     constraints: ['1 <= s.length <= 10^4'],
     sampleCases: [
-      { input: '()[]{}', output: 'true', expected_output: 'true' },
-      { input: '(]', output: 'false', expected_output: 'false' },
+      { input: '()[]{}', output: 'true', expected_output: 'true', is_hidden: false },
+      { input: '(]', output: 'false', expected_output: 'false', is_hidden: false },
+    ],
+    allTestcases: [
+      { input: '()[]{}', output: 'true', expected_output: 'true', is_hidden: false },
+      { input: '(]', output: 'false', expected_output: 'false', is_hidden: false },
     ],
     starterCode: {
       python: `import sys\n\ndef is_valid(s):\n    # Write your solution here...\n    pass\n\nif __name__ == '__main__':\n    s = sys.stdin.read().strip()\n    print("true" if is_valid(s) else "false")\n`,
@@ -104,14 +113,13 @@ export default function ProblemDetailPage({ params }: { params: Promise<{ slug: 
   const supabase = createClient();
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
-  // Helper to extract non-empty testcases securely
-  const formatTestcaseList = (rawCases: any[]) => {
-    if (!rawCases || rawCases.length === 0) return [];
+  // Helper to split raw cases into public sampleCases and allTestcases (public + hidden)
+  const processTestcaseLists = (rawCases: any[]) => {
+    if (!rawCases || rawCases.length === 0) {
+      return { sampleCases: [], allTestcases: [] };
+    }
     
-    const publicList = rawCases.filter((tc: any) => !tc.is_hidden);
-    const targetList = publicList.length > 0 ? publicList : rawCases;
-
-    return targetList.map((tc: any) => {
+    const allMapped = rawCases.map((tc: any) => {
       const exp = (tc.expected_output !== undefined && tc.expected_output !== null)
         ? String(tc.expected_output)
         : String(tc.output || '');
@@ -119,8 +127,14 @@ export default function ProblemDetailPage({ params }: { params: Promise<{ slug: 
         input: String(tc.input || ''),
         output: exp,
         expected_output: exp,
+        is_hidden: !!tc.is_hidden,
       };
     });
+
+    const publicCases = allMapped.filter((tc) => !tc.is_hidden);
+    const sampleCases = publicCases.length > 0 ? publicCases : allMapped;
+
+    return { sampleCases, allTestcases: allMapped };
   };
 
   // Dynamically load problem details by slug from Supabase DB or custom_questions
@@ -131,7 +145,7 @@ export default function ProblemDetailPage({ params }: { params: Promise<{ slug: 
       const customMatch = customQuestions.find((q) => q.title_slug === currentSlug || q.id === currentSlug);
 
       if (customMatch) {
-        const formattedCases = formatTestcaseList(customMatch.testcases);
+        const { sampleCases, allTestcases } = processTestcaseLists(customMatch.testcases);
         setProblem({
           id: customMatch.id,
           title: customMatch.title,
@@ -142,7 +156,8 @@ export default function ProblemDetailPage({ params }: { params: Promise<{ slug: 
           inputFormat: customMatch.input_format || 'Standard Input (stdin)',
           outputFormat: customMatch.output_format || 'Standard Output (stdout)',
           constraints: customMatch.constraints || [],
-          sampleCases: formattedCases.length > 0 ? formattedCases : [{ input: '4\n2 7 11 15\n9', output: '0 1', expected_output: '0 1' }],
+          sampleCases: sampleCases.length > 0 ? sampleCases : [{ input: '4\n2 7 11 15\n9', output: '0 1', expected_output: '0 1', is_hidden: false }],
+          allTestcases: allTestcases.length > 0 ? allTestcases : [{ input: '4\n2 7 11 15\n9', output: '0 1', expected_output: '0 1', is_hidden: false }],
           starterCode: {
             python: `import sys\n\ndef solve():\n    # Write your solution for ${customMatch.title} here...\n    pass\n\nif __name__ == '__main__':\n    solve()`,
             cpp: `#include <iostream>\nusing namespace std;\n\nint main() {\n    // Write your solution for ${customMatch.title} here...\n    return 0;\n}`
@@ -160,7 +175,7 @@ export default function ProblemDetailPage({ params }: { params: Promise<{ slug: 
         .single();
 
       if (!error && dbQuestion) {
-        const formattedCases = formatTestcaseList(dbQuestion.testcases);
+        const { sampleCases, allTestcases } = processTestcaseLists(dbQuestion.testcases);
         setProblem({
           id: dbQuestion.id,
           title: dbQuestion.title,
@@ -171,7 +186,8 @@ export default function ProblemDetailPage({ params }: { params: Promise<{ slug: 
           inputFormat: dbQuestion.input_format || 'Standard Input (stdin)',
           outputFormat: dbQuestion.output_format || 'Standard Output (stdout)',
           constraints: dbQuestion.constraints || [],
-          sampleCases: formattedCases.length > 0 ? formattedCases : [{ input: '4\n2 7 11 15\n9', output: '0 1', expected_output: '0 1' }],
+          sampleCases: sampleCases.length > 0 ? sampleCases : [{ input: '4\n2 7 11 15\n9', output: '0 1', expected_output: '0 1', is_hidden: false }],
+          allTestcases: allTestcases.length > 0 ? allTestcases : [{ input: '4\n2 7 11 15\n9', output: '0 1', expected_output: '0 1', is_hidden: false }],
           starterCode: {
             python: `import sys\n\ndef solve():\n    # Write your solution for ${dbQuestion.title} here...\n    pass\n\nif __name__ == '__main__':\n    solve()`,
             cpp: `#include <iostream>\nusing namespace std;\n\nint main() {\n    // Write your solution for ${dbQuestion.title} here...\n    return 0;\n}`
@@ -229,7 +245,7 @@ export default function ProblemDetailPage({ params }: { params: Promise<{ slug: 
     fetchComments();
   }, [activeTab, problem?.id]);
 
-  // Real execution against Judge0 backend API
+  // Real execution against Judge0 backend API (runs against public sample testcase)
   const handleRunCode = async () => {
     setIsExecuting(true);
     setOutput('Compiling and executing code with Judge0 sandbox...');
@@ -276,6 +292,7 @@ export default function ProblemDetailPage({ params }: { params: Promise<{ slug: 
     }
   };
 
+  // Full submission evaluation against ALL testcases (public + hidden)
   const handleSubmitCode = async () => {
     if (!isLoggedIn) {
       setShowAuthModal(true);
@@ -284,6 +301,10 @@ export default function ProblemDetailPage({ params }: { params: Promise<{ slug: 
 
     setIsExecuting(true);
     setOutput(`Submitting solution for "${problem.title}" to Judge0 evaluation engine...`);
+
+    const customTestcases = problem.allTestcases && problem.allTestcases.length > 0 
+      ? problem.allTestcases 
+      : problem.sampleCases || [];
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -305,7 +326,7 @@ export default function ProblemDetailPage({ params }: { params: Promise<{ slug: 
           user_id: user.id,
           code: code,
           language: language,
-          custom_testcases: problem.sampleCases || [],
+          custom_testcases: customTestcases,
         }),
       });
 
