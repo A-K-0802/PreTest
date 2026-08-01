@@ -18,136 +18,32 @@ import {
 } from 'lucide-react';
 import { Question, Difficulty } from '@/types';
 
-// Baseline problem dataset with fixed static timestamps for SSR hydration safety
-const INITIAL_PROBLEMS: Question[] = [
-  {
-    id: '1',
-    title: 'Two Sum',
-    title_slug: 'two-sum',
-    description: 'Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.',
-    difficulty: 'EASY',
-    constraints: ['2 <= nums.length <= 10^4', '-10^9 <= nums[i] <= 10^9'],
-    input_format: 'Line 1: Array of integers `nums`\nLine 2: Integer `target`',
-    output_format: 'Array of two indices',
-    sample_cases: [],
-    tags: ['Array', 'Hash Table'],
-    created_at: '2026-01-01T00:00:00.000Z',
-    updated_at: '2026-01-01T00:00:00.000Z',
-  },
-  {
-    id: '2',
-    title: 'Add Two Numbers',
-    title_slug: 'add-two-numbers',
-    description: 'You are given two non-empty linked lists representing two non-negative integers. Add the two numbers and return the sum as a linked list.',
-    difficulty: 'MEDIUM',
-    constraints: ['The number of nodes in each linked list is in range [1, 100].'],
-    input_format: 'Two linked list head nodes.',
-    output_format: 'Sum linked list head.',
-    sample_cases: [],
-    tags: ['Linked List', 'Math', 'Two Pointers'],
-    created_at: '2026-01-01T00:00:00.000Z',
-    updated_at: '2026-01-01T00:00:00.000Z',
-  },
-  {
-    id: '3',
-    title: 'Longest Substring Without Repeating Characters',
-    title_slug: 'longest-substring-without-repeating-characters',
-    description: 'Given a string s, find the length of the longest substring without repeating characters.',
-    difficulty: 'MEDIUM',
-    constraints: ['0 <= s.length <= 5 * 10^4'],
-    input_format: 'String s',
-    output_format: 'Integer representing maximum length',
-    sample_cases: [],
-    tags: ['Hash Table', 'String', 'Sliding Window'],
-    created_at: '2026-01-01T00:00:00.000Z',
-    updated_at: '2026-01-01T00:00:00.000Z',
-  },
-  {
-    id: '4',
-    title: 'Trapping Rain Water',
-    title_slug: 'trapping-rain-water',
-    description: 'Given n non-negative integers representing an elevation map where the width of each bar is 1, compute how much water it can trap after raining.',
-    difficulty: 'HARD',
-    constraints: ['n == height.length', '1 <= n <= 2 * 10^4'],
-    input_format: 'Array of heights',
-    output_format: 'Integer volume',
-    sample_cases: [],
-    tags: ['Array', 'Two Pointers', 'Dynamic Programming', 'Stack'],
-    created_at: '2026-01-01T00:00:00.000Z',
-    updated_at: '2026-01-01T00:00:00.000Z',
-  },
-  {
-    id: '5',
-    title: 'Valid Parentheses',
-    title_slug: 'valid-parentheses',
-    description: 'Given a string s containing just the characters "(", ")", "{", "}", "[" and "]", determine if the input string is valid.',
-    difficulty: 'EASY',
-    constraints: ['1 <= s.length <= 10^4'],
-    input_format: 'String s',
-    output_format: 'Boolean (true/false)',
-    sample_cases: [],
-    tags: ['String', 'Stack'],
-    created_at: '2026-01-01T00:00:00.000Z',
-    updated_at: '2026-01-01T00:00:00.000Z',
-  },
-  {
-    id: '6',
-    title: 'Merge K Sorted Lists',
-    title_slug: 'merge-k-sorted-lists',
-    description: 'You are given an array of k linked-lists lists, each linked-list is sorted in ascending order. Merge all the linked-lists into one sorted linked-list and return it.',
-    difficulty: 'HARD',
-    constraints: ['k == lists.length', '0 <= k <= 10^4'],
-    input_format: 'Array of k linked lists',
-    output_format: 'Merged sorted linked list',
-    sample_cases: [],
-    tags: ['Linked List', 'Divide and Conquer', 'Heap'],
-    created_at: '2026-01-01T00:00:00.000Z',
-    updated_at: '2026-01-01T00:00:00.000Z',
-  },
-];
-
 export default function Home() {
-  const [problems, setProblems] = useState<Question[]>(INITIAL_PROBLEMS);
+  const [problems, setProblems] = useState<Question[]>([]);
   const [search, setSearch] = useState('');
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('ALL');
   const [user, setUser] = useState<any>(null);
   const [userRole, setUserRole] = useState<string>('LEARNER');
   const [loadingUser, setLoadingUser] = useState(true);
+  const [loadingProblems, setLoadingProblems] = useState(true);
 
   const supabase = createClient();
 
-  // Dynamically load active questions from Supabase + custom_questions, filtering out deleted ones
+  // Dynamically load active questions exclusively from Supabase DB
   useEffect(() => {
     const loadDynamicQuestions = async () => {
-      const deletedIds: string[] = JSON.parse(localStorage.getItem('deleted_question_ids') || '[]');
-      const customQuestions: any[] = JSON.parse(localStorage.getItem('custom_questions') || '[]');
-
-      let baseList = [...INITIAL_PROBLEMS];
-
-      // Query Supabase questions table
+      setLoadingProblems(true);
       const { data: dbData, error } = await supabase
         .from('questions')
         .select('*')
         .order('created_at', { ascending: true });
 
-      if (!error && dbData && dbData.length > 0) {
-        const dbSlugs = new Set(dbData.map((q: any) => q.title_slug));
-        baseList = [...dbData, ...baseList.filter((q) => !dbSlugs.has(q.title_slug))];
+      if (!error && dbData) {
+        setProblems(dbData);
+      } else {
+        setProblems([]);
       }
-
-      // Merge custom created questions
-      if (customQuestions.length > 0) {
-        const existingIds = new Set(baseList.map((q) => q.id));
-        customQuestions.forEach((cq) => {
-          if (!existingIds.has(cq.id)) {
-            baseList.push(cq);
-          }
-        });
-      }
-
-      // Exclude deleted questions
-      const active = baseList.filter((q) => !deletedIds.includes(q.id));
-      setProblems(active);
+      setLoadingProblems(false);
     };
 
     loadDynamicQuestions();
@@ -158,7 +54,6 @@ export default function Home() {
       if (session?.user) {
         setUser(session.user);
         
-        // Query public.profiles table to get the user's role
         const { data: profile } = await supabase
           .from('profiles')
           .select('role')
@@ -168,26 +63,19 @@ export default function Home() {
         if (profile?.role) {
           setUserRole(profile.role);
         }
-      } else {
-        setUser(null);
-        setUserRole('LEARNER');
       }
       setLoadingUser(false);
     };
 
-    // Check initial auth state
     supabase.auth.getSession().then(({ data: { session } }) => {
       fetchUserAndRole(session);
     });
 
-    // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       fetchUserAndRole(session);
     });
 
-    return () => {
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, []);
 
   const handleSignOut = async () => {
@@ -196,137 +84,140 @@ export default function Home() {
     setUserRole('LEARNER');
   };
 
-  const filteredProblems = problems.filter((problem) => {
-    const matchesSearch = problem.title.toLowerCase().includes(search.toLowerCase()) ||
-      (problem.tags && problem.tags.some((tag) => tag.toLowerCase().includes(search.toLowerCase())));
-    const matchesDifficulty = selectedDifficulty === 'ALL' || problem.difficulty === selectedDifficulty;
+  const filteredProblems = problems.filter((prob) => {
+    const matchesSearch = 
+      prob.title.toLowerCase().includes(search.toLowerCase()) ||
+      prob.title_slug.toLowerCase().includes(search.toLowerCase()) ||
+      (prob.tags && prob.tags.some((t) => t.toLowerCase().includes(search.toLowerCase())));
+
+    const matchesDifficulty = selectedDifficulty === 'ALL' || prob.difficulty === selectedDifficulty;
+
     return matchesSearch && matchesDifficulty;
   });
 
-  const getDifficultyBadge = (difficulty: Difficulty) => {
-    switch (difficulty) {
+  const getDifficultyBadge = (diff: Difficulty) => {
+    switch (diff) {
       case 'EASY':
         return 'bg-[#003824] text-[#10b981] border-[#005236]';
       case 'MEDIUM':
         return 'bg-[#3d2a00] text-[#f59e0b] border-[#78350f]';
       case 'HARD':
-        return 'bg-[#450a0a] text-[#f87171] border-[#991b1b]';
+        return 'bg-[#3b0914] text-[#f87171] border-[#7f1d1d]';
+      default:
+        return 'bg-[#1f2937] text-[#bbcabf] border-[#3c4a42]';
     }
   };
 
   return (
     <div className="min-h-screen bg-[#0b1326] text-[#dbe2fd] flex flex-col font-sans selection:bg-[#10b981] selection:text-[#0b1326]">
-      {/* Top Navbar */}
-      <header className="border-b border-[#1f2937] bg-[#0b1326] sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center space-x-3">
-            <div className="w-9 h-9 rounded bg-[#10b981] text-[#0b1326] flex items-center justify-center font-bold shadow-lg shadow-[#10b981]/20">
-              <Terminal className="w-5 h-5 stroke-[2.5]" />
-            </div>
-            <span className="font-extrabold text-xl tracking-tight text-[#10b981]">
-              TestPrep <span className="text-xs text-[#dbe2fd] font-mono font-normal">DSA Platform</span>
-            </span>
-          </Link>
-
-          <div className="flex items-center space-x-4">
-            {loadingUser ? (
-              <div className="text-xs font-mono text-[#bbcabf] animate-pulse">Checking Auth...</div>
-            ) : user ? (
-              <div className="flex items-center space-x-3">
-                <span className="text-xs font-mono text-[#bbcabf] bg-[#131b2e] px-3 py-1.5 rounded border border-[#3c4a42]">
-                  {user.email}
-                </span>
-
-                {userRole === 'ADMIN' && (
-                  <Link
-                    href="/admin"
-                    className="bg-[#10b981] hover:bg-[#4edea3] text-[#0b1326] text-xs font-mono font-bold px-3.5 py-1.5 rounded shadow-md shadow-[#10b981]/20 transition-all flex items-center space-x-1.5"
-                  >
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                    <span>Admin Portal</span>
-                  </Link>
-                )}
-
-                <button
-                  onClick={handleSignOut}
-                  className="text-xs font-mono text-[#bbcabf] hover:text-[#f87171] bg-[#131b2e] hover:bg-[#450a0a]/40 border border-[#3c4a42] hover:border-[#991b1b] px-3 py-1.5 rounded transition-all flex items-center space-x-1"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                  <span>Sign Out</span>
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center space-x-3">
-                <Link
-                  href="/login"
-                  className="text-xs font-mono font-semibold text-[#dbe2fd] hover:text-[#10b981] px-3 py-1.5 transition-colors flex items-center space-x-1"
-                >
-                  <LogIn className="w-3.5 h-3.5" />
-                  <span>Sign In</span>
-                </Link>
-                <Link
-                  href="/signup"
-                  className="bg-[#10b981] hover:bg-[#4edea3] text-[#0b1326] text-xs font-mono font-bold px-3.5 py-1.5 rounded shadow-md shadow-[#10b981]/20 transition-all flex items-center space-x-1"
-                >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  <span>Get Started</span>
-                </Link>
-              </div>
-            )}
+      {/* Top Header Navbar */}
+      <header className="h-16 border-b border-[#1f2937] bg-[#0b1326]/90 backdrop-blur-md sticky top-0 z-40 px-6 flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <div className="w-8 h-8 rounded bg-[#10b981] text-[#0b1326] flex items-center justify-center font-mono font-bold text-base shadow-md shadow-[#10b981]/20">
+            &gt;_
           </div>
+          <span className="font-bold text-lg text-[#dbe2fd] tracking-tight">
+            TestPrep <span className="text-[#10b981] text-xs font-mono font-normal ml-1">DSA Platform</span>
+          </span>
+        </div>
+
+        {/* User Auth Controls */}
+        <div className="flex items-center space-x-3">
+          {loadingUser ? (
+            <div className="w-24 h-8 bg-[#131b2e] rounded animate-pulse border border-[#1f2937]"></div>
+          ) : user ? (
+            <div className="flex items-center space-x-3 font-mono text-xs">
+              <span className="text-[#bbcabf] bg-[#131b2e] px-3 py-1.5 rounded border border-[#1f2937] flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-[#10b981]"></span>
+                {user.email}
+              </span>
+
+              {userRole === 'ADMIN' && (
+                <Link
+                  href="/admin"
+                  className="bg-[#003824] hover:bg-[#005236] text-[#10b981] border border-[#005236] px-3 py-1.5 rounded font-bold transition-all flex items-center space-x-1.5"
+                >
+                  <LayoutDashboard className="w-3.5 h-3.5" />
+                  <span>Admin Panel</span>
+                </Link>
+              )}
+
+              <button
+                onClick={handleSignOut}
+                className="bg-[#131b2e] hover:bg-[#171f33] border border-[#3c4a42] text-[#bbcabf] hover:text-[#f87171] px-3 py-1.5 rounded transition-all flex items-center space-x-1"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Sign Out</span>
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center space-x-2 font-mono text-xs">
+              <Link
+                href="/login"
+                className="text-[#bbcabf] hover:text-[#dbe2fd] px-3.5 py-1.5 rounded transition-all flex items-center space-x-1"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                <span>Sign In</span>
+              </Link>
+              <Link
+                href="/signup"
+                className="bg-[#10b981] hover:bg-[#4edea3] text-[#0b1326] font-bold px-3.5 py-1.5 rounded shadow-md shadow-[#10b981]/20 transition-all flex items-center space-x-1"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>Get Started</span>
+              </Link>
+            </div>
+          )}
         </div>
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-6 py-8 space-y-8">
-        {/* Hero Banner */}
-        <div className="relative overflow-hidden rounded bg-[#131b2e] border border-[#1f2937] p-8 md:p-10 shadow-2xl">
-          <div className="relative z-10 max-w-2xl space-y-4">
-            <div className="inline-flex items-center space-x-2 px-3 py-1 rounded bg-[#003824] border border-[#005236] text-[#10b981] text-xs font-mono font-semibold">
+      <main className="flex-1 max-w-7xl w-full mx-auto p-6 md:p-8 space-y-8">
+        {/* Banner Hero */}
+        <div className="bg-[#131b2e] border border-[#1f2937] p-8 rounded-lg relative overflow-hidden">
+          <div className="relative z-10 max-w-2xl space-y-3">
+            <div className="inline-flex items-center space-x-2 px-3 py-1 rounded bg-[#003824] text-[#10b981] border border-[#005236] text-xs font-mono font-bold">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Production DSA Platform Active</span>
+              <span>JUDGE0 SANDBOX POWERED</span>
             </div>
-            <h1 className="text-3xl md:text-4xl font-extrabold text-[#dbe2fd] tracking-tight">
-              Master Technical Interviews & Algorithms
+            <h1 className="text-3xl font-extrabold text-[#dbe2fd] tracking-tight">
+              Master Technical Interviews with Live Execution
             </h1>
-            <p className="text-sm text-[#bbcabf] font-mono leading-relaxed">
-              Execute Python, C++, Java, and JavaScript solutions live inside our sandboxed Judge0 engine.
+            <p className="text-xs font-mono text-[#bbcabf] leading-relaxed">
+              Solve algorithm problems, test against public sample cases, and submit to the Judge0 evaluation engine for instant verdict scoring.
             </p>
           </div>
         </div>
 
-        {/* Filter Controls */}
-        <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-[#131b2e] p-4 rounded border border-[#1f2937]">
-          <div className="relative w-full md:w-96">
-            <Search className="w-4 h-4 text-[#bbcabf] absolute left-3.5 top-1/2 -translate-y-1/2" />
+        {/* Filters & Search Controls */}
+        <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-[#131b2e] p-4 rounded border border-[#1f2937]">
+          <div className="w-full md:w-96 relative">
+            <Search className="w-4 h-4 text-[#bbcabf] absolute left-3 top-3" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search problems by title or topic..."
-              className="w-full bg-[#0b1326] border border-[#3c4a42] rounded px-3.5 pl-10 py-2 text-xs text-[#dbe2fd] placeholder:text-[#bbcabf]/50 focus:outline-none focus:border-[#10b981] font-mono"
+              className="w-full bg-[#0b1326] border border-[#3c4a42] rounded pl-9 pr-4 py-2 text-xs text-[#dbe2fd] placeholder:text-[#bbcabf]/40 focus:outline-none focus:border-[#10b981] font-mono"
             />
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-mono uppercase text-[#bbcabf] mr-2">Difficulty:</span>
-            {['ALL', 'EASY', 'MEDIUM', 'HARD'].map((diff) => (
-              <button
-                key={diff}
-                onClick={() => setSelectedDifficulty(diff)}
-                className={`px-3 py-1 rounded text-xs font-mono font-semibold transition-all ${
-                  selectedDifficulty === diff
-                    ? 'bg-[#10b981] text-[#0b1326]'
-                    : 'bg-[#0b1326] text-[#bbcabf] border border-[#3c4a42] hover:text-[#dbe2fd]'
-                }`}
-              >
-                {diff}
-              </button>
-            ))}
+          <div className="flex items-center space-x-2 w-full md:w-auto font-mono text-xs">
+            <span className="text-[#bbcabf]">Difficulty:</span>
+            <select
+              value={selectedDifficulty}
+              onChange={(e) => setSelectedDifficulty(e.target.value)}
+              className="bg-[#0b1326] border border-[#3c4a42] rounded px-3 py-2 text-xs text-[#dbe2fd] focus:outline-none focus:border-[#10b981]"
+            >
+              <option value="ALL">All Problems</option>
+              <option value="EASY">EASY</option>
+              <option value="MEDIUM">MEDIUM</option>
+              <option value="HARD">HARD</option>
+            </select>
           </div>
         </div>
 
-        {/* Problems List Table */}
+        {/* Problems Table */}
         <div className="bg-[#131b2e] border border-[#1f2937] rounded overflow-hidden shadow-2xl">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs text-[#dbe2fd]">
@@ -336,48 +227,51 @@ export default function Home() {
                   <th className="py-3.5 px-6">Title</th>
                   <th className="py-3.5 px-6">Difficulty</th>
                   <th className="py-3.5 px-6">Tags</th>
-                  <th className="py-3.5 px-6 text-right">Solve</th>
+                  <th className="py-3.5 px-6 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#1f2937]/60 font-mono">
-                {filteredProblems.length === 0 ? (
+                {loadingProblems ? (
+                  <tr>
+                    <td colSpan={5} className="py-12 text-center text-[#bbcabf] animate-pulse">
+                      Loading live problems from database...
+                    </td>
+                  </tr>
+                ) : filteredProblems.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="py-12 text-center text-[#bbcabf]">
                       No problems found matching your criteria.
                     </td>
                   </tr>
                 ) : (
-                  filteredProblems.map((problem) => (
-                    <tr key={problem.id} className="hover:bg-[#171f33] transition-colors">
+                  filteredProblems.map((prob) => (
+                    <tr key={prob.id} className="hover:bg-[#171f33] transition-colors">
                       <td className="py-4 px-6">
-                        <span className="w-2 h-2 rounded-full bg-[#10b981] inline-block" title="Available"></span>
+                        <span className="w-2 h-2 rounded-full bg-[#10b981] inline-block"></span>
                       </td>
-                      <td className="py-4 px-6">
-                        <Link
-                          href={`/problems/${problem.title_slug}`}
-                          className="font-bold text-[#dbe2fd] hover:text-[#10b981] transition-colors"
-                        >
-                          {problem.title}
+                      <td className="py-4 px-6 font-bold text-[#dbe2fd]">
+                        <Link href={`/problems/${prob.title_slug}`} className="hover:text-[#10b981] transition-colors">
+                          {prob.title}
                         </Link>
                       </td>
                       <td className="py-4 px-6">
-                        <span className={`inline-flex px-2 py-0.5 rounded border text-[10px] font-bold ${getDifficultyBadge(problem.difficulty)}`}>
-                          {problem.difficulty}
+                        <span className={`inline-flex px-2 py-0.5 rounded border text-[10px] font-bold ${getDifficultyBadge(prob.difficulty)}`}>
+                          {prob.difficulty}
                         </span>
                       </td>
                       <td className="py-4 px-6">
                         <div className="flex flex-wrap gap-1">
-                          {problem.tags && problem.tags.map((tag) => (
-                            <span key={tag} className="px-1.5 py-0.5 rounded bg-[#0b1326] text-[#bbcabf] border border-[#3c4a42] text-[10px]">
-                              {tag}
+                          {prob.tags && prob.tags.map((t) => (
+                            <span key={t} className="px-1.5 py-0.5 rounded bg-[#0b1326] text-[#bbcabf] border border-[#3c4a42] text-[10px]">
+                              {t}
                             </span>
                           ))}
                         </div>
                       </td>
                       <td className="py-4 px-6 text-right">
                         <Link
-                          href={`/problems/${problem.title_slug}`}
-                          className="bg-[#10b981] hover:bg-[#4edea3] text-[#0b1326] font-bold text-[11px] px-3 py-1.5 rounded transition-all inline-flex items-center space-x-1"
+                          href={`/problems/${prob.title_slug}`}
+                          className="bg-[#0b1326] hover:bg-[#171f33] border border-[#3c4a42] text-[#10b981] font-bold px-3.5 py-1.5 rounded transition-all inline-flex items-center space-x-1"
                         >
                           <Code2 className="w-3.5 h-3.5" />
                           <span>Solve</span>

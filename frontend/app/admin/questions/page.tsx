@@ -13,112 +13,6 @@ import {
 } from 'lucide-react';
 import { Question, Difficulty } from '@/types';
 
-// Standard baseline questions catalog fallback
-const BASELINE_QUESTIONS: Array<Question & { sample_count: number; hidden_count: number; is_published: boolean }> = [
-  {
-    id: '1',
-    title: 'Two Sum',
-    title_slug: 'two-sum',
-    description: 'Given an array of integers nums and an integer target...',
-    difficulty: 'EASY',
-    constraints: ['2 <= nums.length <= 10^4'],
-    input_format: 'Array nums and target',
-    output_format: 'Indices array',
-    sample_cases: [],
-    tags: ['Array', 'Hash Table'],
-    sample_count: 2,
-    hidden_count: 1,
-    is_published: true,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: '2',
-    title: 'Add Two Numbers',
-    title_slug: 'add-two-numbers',
-    description: 'You are given two non-empty linked lists...',
-    difficulty: 'MEDIUM',
-    constraints: ['Nodes in range [1, 100]'],
-    input_format: 'Two linked lists',
-    output_format: 'Sum list',
-    sample_cases: [],
-    tags: ['Linked List', 'Math'],
-    sample_count: 1,
-    hidden_count: 1,
-    is_published: true,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: '3',
-    title: 'Longest Substring Without Repeating Characters',
-    title_slug: 'longest-substring-without-repeating-characters',
-    description: 'Given a string s, find the length of the longest substring without repeating characters.',
-    difficulty: 'MEDIUM',
-    constraints: ['0 <= s.length <= 5 * 10^4'],
-    input_format: 'String s',
-    output_format: 'Maximum length',
-    sample_cases: [],
-    tags: ['Hash Table', 'String', 'Sliding Window'],
-    sample_count: 1,
-    hidden_count: 1,
-    is_published: true,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: '4',
-    title: 'Trapping Rain Water',
-    title_slug: 'trapping-rain-water',
-    description: 'Given n non-negative integers representing an elevation map...',
-    difficulty: 'HARD',
-    constraints: ['1 <= n <= 2 * 10^4'],
-    input_format: 'Heights array',
-    output_format: 'Trapped volume',
-    sample_cases: [],
-    tags: ['Array', 'Two Pointers', 'Dynamic Programming'],
-    sample_count: 1,
-    hidden_count: 1,
-    is_published: true,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: '5',
-    title: 'Valid Parentheses',
-    title_slug: 'valid-parentheses',
-    description: 'Given a string s containing just the characters "(", ")", "{", "}", "[" and "]", determine if valid.',
-    difficulty: 'EASY',
-    constraints: ['1 <= s.length <= 10^4'],
-    input_format: 'String s',
-    output_format: 'Boolean',
-    sample_cases: [],
-    tags: ['String', 'Stack'],
-    sample_count: 2,
-    hidden_count: 0,
-    is_published: true,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: '6',
-    title: 'Merge K Sorted Lists',
-    title_slug: 'merge-k-sorted-lists',
-    description: 'You are given an array of k linked-lists lists, each linked-list is sorted in ascending order.',
-    difficulty: 'HARD',
-    constraints: ['0 <= k <= 10^4'],
-    input_format: 'Array of linked lists',
-    output_format: 'Merged linked list',
-    sample_cases: [],
-    tags: ['Linked List', 'Divide and Conquer', 'Heap'],
-    sample_count: 1,
-    hidden_count: 1,
-    is_published: true,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-];
-
 export default function AdminManageQuestionsPage() {
   const [questions, setQuestions] = useState<Array<Question & { sample_count: number; hidden_count: number; is_published: boolean }>>([]);
   const [search, setSearch] = useState('');
@@ -126,22 +20,18 @@ export default function AdminManageQuestionsPage() {
   const [loading, setLoading] = useState(true);
 
   const supabase = createClient();
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
-  // Load questions from Supabase + custom_questions, minus deleted_question_ids
+  // Load questions exclusively from Supabase DB
   const loadAllQuestions = async () => {
     setLoading(true);
-    const deletedIds: string[] = JSON.parse(localStorage.getItem('deleted_question_ids') || '[]');
-    const customQuestions: any[] = JSON.parse(localStorage.getItem('custom_questions') || '[]');
 
-    let baseList = [...BASELINE_QUESTIONS];
-
-    // Try fetching from Supabase DB
     const { data: dbData, error } = await supabase
       .from('questions')
       .select('*, testcases(id, is_hidden)')
       .order('created_at', { ascending: true });
 
-    if (!error && dbData && dbData.length > 0) {
+    if (!error && dbData) {
       const dbFormatted = dbData.map((q: any) => {
         const publicCount = q.testcases ? q.testcases.filter((tc: any) => !tc.is_hidden).length : 0;
         const hiddenCount = q.testcases ? q.testcases.filter((tc: any) => tc.is_hidden).length : 0;
@@ -152,37 +42,10 @@ export default function AdminManageQuestionsPage() {
           is_published: true,
         };
       });
-
-      // Merge DB questions with base list avoiding duplicate IDs/slugs
-      const dbSlugs = new Set(dbFormatted.map((q: any) => q.title_slug));
-      baseList = [...dbFormatted, ...baseList.filter((q) => !dbSlugs.has(q.title_slug))];
+      setQuestions(dbFormatted);
+    } else {
+      setQuestions([]);
     }
-
-    // Merge custom created questions
-    if (customQuestions.length > 0) {
-      const existingIds = new Set(baseList.map((q) => q.id));
-      customQuestions.forEach((cq) => {
-        const publicCount = cq.testcases ? cq.testcases.filter((tc: any) => !tc.is_hidden).length : (cq.sample_count ?? 0);
-        const hiddenCount = cq.testcases ? cq.testcases.filter((tc: any) => tc.is_hidden).length : (cq.hidden_count ?? 0);
-        const formattedCq = {
-          ...cq,
-          sample_count: publicCount,
-          hidden_count: hiddenCount,
-        };
-
-        if (!existingIds.has(cq.id)) {
-          baseList.push(formattedCq);
-        } else {
-          // Replace matching question with updated counts
-          const idx = baseList.findIndex((q) => q.id === cq.id);
-          if (idx >= 0) baseList[idx] = formattedCq;
-        }
-      });
-    }
-
-    // Filter out deleted IDs permanently
-    const activeQuestions = baseList.filter((q) => !deletedIds.includes(q.id));
-    setQuestions(activeQuestions);
     setLoading(false);
   };
 
@@ -192,7 +55,6 @@ export default function AdminManageQuestionsPage() {
 
   const handleDeleteQuestion = async (id: string, title: string) => {
     if (confirm(`Are you sure you want to delete question "${title}"? This will permanently delete its testcases and submissions.`)) {
-      // 1. Delete associated child rows in Supabase if present
       try {
         await supabase.from('testcases').delete().eq('question_id', id);
         await supabase.from('submissions').delete().eq('question_id', id);
@@ -202,19 +64,13 @@ export default function AdminManageQuestionsPage() {
         console.warn('Supabase cascade delete notice:', err);
       }
 
-      // 2. Persist deleted ID in localStorage so deletion survives reloads
-      const deletedIds: string[] = JSON.parse(localStorage.getItem('deleted_question_ids') || '[]');
-      if (!deletedIds.includes(id)) {
-        deletedIds.push(id);
-        localStorage.setItem('deleted_question_ids', JSON.stringify(deletedIds));
+      try {
+        await fetch(`${API_URL}/questions/${id}`, { method: 'DELETE' });
+      } catch (apiErr) {
+        console.warn('Backend API delete notice:', apiErr);
       }
 
-      // 3. Remove from custom_questions
-      const customQuestions: any[] = JSON.parse(localStorage.getItem('custom_questions') || '[]');
-      const updatedCustom = customQuestions.filter((q) => q.id !== id);
-      localStorage.setItem('custom_questions', JSON.stringify(updatedCustom));
-
-      // Reload view
+      // Reload live database list
       loadAllQuestions();
     }
   };
@@ -307,7 +163,13 @@ export default function AdminManageQuestionsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#1f2937]/60 font-mono">
-              {filteredQuestions.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-[#bbcabf]">
+                    Loading question bank from database...
+                  </td>
+                </tr>
+              ) : filteredQuestions.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-[#bbcabf]">
                     No questions found matching your filter.
