@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict, Field
-from typing import Optional, List, Union
+from typing import Optional, List, Union, Dict, Any
 from uuid import UUID
 from datetime import datetime
 from app.models.submission import VerdictEnum
@@ -24,8 +24,10 @@ class RunCodeResponse(BaseModel):
 
 class SubmitCodeRequest(BaseModel):
     question_id: Union[UUID, str]
+    question_slug: Optional[str] = None
     language: str
     code: str
+    custom_testcases: Optional[List[Dict[str, Any]]] = None
 
 class SubmitCodeResponse(BaseModel):
     submission_id: UUID

@@ -1,5 +1,5 @@
 import uuid
-from typing import List
+from typing import List, Dict, Any
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -54,45 +54,59 @@ async def submit_code(
     for the specific question requested, recording submission verdict in database.
     """
     question_id_str = str(request.question_id)
+    slug_str = str(request.question_slug or "")
     question = None
 
     try:
         if len(question_id_str) == 36:
-            q_uuid = UUID(question_id_str)
-            question = db.query(Question).filter(Question.id == q_uuid).first()
+            try:
+                q_uuid = UUID(question_id_str)
+                question = db.query(Question).filter(Question.id == q_uuid).first()
+            except Exception:
+                question = None
         
+        if not question and slug_str:
+            question = db.query(Question).filter(Question.title_slug == slug_str).first()
+
         if not question:
-            question = db.query(Question).filter(
-                (Question.title_slug == question_id_str) | (Question.id == question_id_str)
-            ).first()
+            question = db.query(Question).filter(Question.title_slug == question_id_str).first()
     except Exception:
         db.rollback()
         question = None
 
-    testcases = []
+    testcase_objects = []
+
+    # 1. First attempt: Fetch testcases from PostgreSQL DB for this question
     if question:
         try:
-            testcases = db.query(Testcase).filter(Testcase.question_id == question.id).all()
+            db_tcs = db.query(Testcase).filter(Testcase.question_id == question.id).all()
+            if db_tcs:
+                testcase_objects = db_tcs
         except Exception:
             db.rollback()
-            testcases = []
 
-    if not testcases:
-        # Default testcase suite if question has no custom testcases in DB yet
-        testcases = [
+    # 2. Second attempt: Use client custom_testcases if DB returned 0 testcases for this question
+    if not testcase_objects and request.custom_testcases:
+        for c_tc in request.custom_testcases:
+            inp = c_tc.get("input", "")
+            out = c_tc.get("expected_output") or c_tc.get("output") or ""
+            is_hid = c_tc.get("is_hidden", False)
+            testcase_objects.append(Testcase(input=str(inp), expected_output=str(out), is_hidden=is_hid))
+
+    # 3. Fallback: If still empty, raise 404 or provide default
+    if not testcase_objects:
+        testcase_objects = [
             Testcase(input="4\n2 7 11 15\n9", expected_output="0 1", is_hidden=False),
-            Testcase(input="3\n3 2 4\n6", expected_output="1 2", is_hidden=False),
-            Testcase(input="5\n3 2 4 1 9\n10", expected_output="3 4", is_hidden=True),
         ]
 
     passed_count = 0
-    total_count = len(testcases)
+    total_count = len(testcase_objects)
     final_verdict = VerdictEnum.ACCEPTED
     max_time_ms = 0
     max_memory_kb = 0
     error_msg = None
 
-    for tc in testcases:
+    for tc in testcase_objects:
         exec_result = await judge0_service.execute_code(
             language=request.language,
             code=request.code,
@@ -109,7 +123,7 @@ async def submit_code(
             passed_count += 1
         else:
             final_verdict = verdict
-            error_msg = exec_result["stderr"] or exec_result["compile_output"] or f"Failed on testcase input: {tc.input}"
+            error_msg = exec_result["stderr"] or exec_result["compile_output"] or f"Failed on testcase input:\n{tc.input}"
             break  # Stop execution on first failing testcase
 
     submission_id = uuid.uuid4()

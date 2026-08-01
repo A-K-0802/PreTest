@@ -89,11 +89,10 @@ function QuestionFormContent() {
         setOutputFormat(localMatch.output_format || '');
         setConstraints(Array.isArray(localMatch.constraints) ? localMatch.constraints.join('\n') : localMatch.constraints || '');
         
-        // FIX: Restore saved testcases from localStorage
         if (localMatch.testcases && localMatch.testcases.length > 0) {
           setTestcases(localMatch.testcases.map((tc: any) => ({
             input: tc.input || '',
-            expected_output: tc.expected_output || '',
+            expected_output: tc.expected_output || tc.output || '',
             is_hidden: !!tc.is_hidden
           })));
         }
@@ -116,11 +115,10 @@ function QuestionFormContent() {
         setOutputFormat(qData.output_format || '');
         setConstraints(Array.isArray(qData.constraints) ? qData.constraints.join('\n') : '');
         
-        // FIX: Restore saved testcases from Supabase DB
         if (qData.testcases && qData.testcases.length > 0) {
           setTestcases(qData.testcases.map((tc: any) => ({
             input: tc.input || '',
-            expected_output: tc.expected_output || '',
+            expected_output: tc.expected_output || tc.output || '',
             is_hidden: !!tc.is_hidden
           })));
         }
@@ -159,7 +157,8 @@ function QuestionFormContent() {
     e.preventDefault();
     setLoading(true);
 
-    const qId = editId || Date.now().toString();
+    // Generate valid UUID for Supabase PostgreSQL UUID primary key
+    const qId = editId || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : '10000000-0000-0000-0000-' + Date.now().toString().padStart(12, '0'));
     const titleSlug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
     // Filter out empty testcases
@@ -184,6 +183,7 @@ function QuestionFormContent() {
     };
 
     // 1. Save question and testcase rows directly to Supabase Database tables
+    let activeQuestionId = qId;
     try {
       if (editId) {
         await supabase.from('questions').update({
@@ -200,7 +200,8 @@ function QuestionFormContent() {
         // Delete previous testcases in Supabase for editId
         await supabase.from('testcases').delete().eq('question_id', editId);
       } else {
-        const { data: insertedQ } = await supabase.from('questions').insert([{
+        const { data: insertedQ, error: insertErr } = await supabase.from('questions').insert([{
+          id: qId,
           title: questionObj.title,
           title_slug: questionObj.title_slug,
           description: questionObj.description,
@@ -212,14 +213,15 @@ function QuestionFormContent() {
         }]).select().single();
 
         if (insertedQ?.id) {
+          activeQuestionId = insertedQ.id;
           questionObj.id = insertedQ.id;
         }
       }
 
-      // Insert fresh testcase rows into Supabase testcases table
+      // Insert fresh testcase rows into Supabase testcases table with valid UUID question_id
       if (validTestcases.length > 0) {
         const testcaseRows = validTestcases.map((tc) => ({
-          question_id: questionObj.id,
+          question_id: activeQuestionId,
           input: tc.input,
           expected_output: tc.expected_output,
           is_hidden: tc.is_hidden,
@@ -232,7 +234,7 @@ function QuestionFormContent() {
 
     // 2. Persist to custom_questions in localStorage for permanent page reload persistence
     const customQuestions: any[] = JSON.parse(localStorage.getItem('custom_questions') || '[]');
-    const existingIdx = customQuestions.findIndex((q) => q.id === qId || q.id === questionObj.id);
+    const existingIdx = customQuestions.findIndex((q) => q.id === qId || q.id === activeQuestionId);
     if (existingIdx >= 0) {
       customQuestions[existingIdx] = questionObj;
     } else {

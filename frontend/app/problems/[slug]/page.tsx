@@ -108,7 +108,6 @@ export default function ProblemDetailPage({ params }: { params: Promise<{ slug: 
   const formatTestcaseList = (rawCases: any[]) => {
     if (!rawCases || rawCases.length === 0) return [];
     
-    // Filter public cases first; fallback to all cases if no public filter match
     const publicList = rawCases.filter((tc: any) => !tc.is_hidden);
     const targetList = publicList.length > 0 ? publicList : rawCases;
 
@@ -302,9 +301,11 @@ export default function ProblemDetailPage({ params }: { params: Promise<{ slug: 
         headers,
         body: JSON.stringify({
           question_id: problem.id,
+          question_slug: problem.slug || currentSlug,
           user_id: user.id,
           code: code,
           language: language,
+          custom_testcases: problem.sampleCases || [],
         }),
       });
 
