@@ -62,8 +62,8 @@ function QuestionFormContent() {
   const [inputFormat, setInputFormat] = useState('');
   const [outputFormat, setOutputFormat] = useState('');
   const [testcases, setTestcases] = useState<Array<{ input: string; expected_output: string; is_hidden: boolean }>>([
-    { input: '4\n2 7 11 15\n9', expected_output: '0 1', is_hidden: false },
-    { input: '5\n3 2 4 1 9\n10', expected_output: '3 4', is_hidden: true },
+    { input: '', expected_output: '', is_hidden: false },
+    { input: '', expected_output: '', is_hidden: true },
   ]);
 
   const [loading, setLoading] = useState(false);
@@ -76,7 +76,7 @@ function QuestionFormContent() {
     if (!editId) return;
 
     const loadQuestionData = async () => {
-      // 1. Try querying custom_questions in localStorage
+      // 1. Try querying custom_questions in localStorage first
       const customQuestions: any[] = JSON.parse(localStorage.getItem('custom_questions') || '[]');
       const localMatch = customQuestions.find((q) => q.id === editId);
 
@@ -88,6 +88,15 @@ function QuestionFormContent() {
         setInputFormat(localMatch.input_format || '');
         setOutputFormat(localMatch.output_format || '');
         setConstraints(Array.isArray(localMatch.constraints) ? localMatch.constraints.join('\n') : localMatch.constraints || '');
+        
+        // FIX: Restore saved testcases from localStorage
+        if (localMatch.testcases && localMatch.testcases.length > 0) {
+          setTestcases(localMatch.testcases.map((tc: any) => ({
+            input: tc.input || '',
+            expected_output: tc.expected_output || '',
+            is_hidden: !!tc.is_hidden
+          })));
+        }
         return;
       }
 
@@ -107,11 +116,12 @@ function QuestionFormContent() {
         setOutputFormat(qData.output_format || '');
         setConstraints(Array.isArray(qData.constraints) ? qData.constraints.join('\n') : '');
         
+        // FIX: Restore saved testcases from Supabase DB
         if (qData.testcases && qData.testcases.length > 0) {
           setTestcases(qData.testcases.map((tc: any) => ({
-            input: tc.input,
-            expected_output: tc.expected_output,
-            is_hidden: tc.is_hidden
+            input: tc.input || '',
+            expected_output: tc.expected_output || '',
+            is_hidden: !!tc.is_hidden
           })));
         }
       } else if (BASELINE_DATA[editId]) {
@@ -124,7 +134,7 @@ function QuestionFormContent() {
         setInputFormat(base.inputFormat);
         setOutputFormat(base.outputFormat);
         setConstraints(base.constraints);
-        setTestcases(base.testcases);
+        setTestcases(base.testcases || []);
       }
     };
 
@@ -152,6 +162,9 @@ function QuestionFormContent() {
     const qId = editId || Date.now().toString();
     const titleSlug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
+    // Filter out empty testcases
+    const validTestcases = testcases.filter((tc) => tc.input.trim() !== '' || tc.expected_output.trim() !== '');
+
     const questionObj = {
       id: qId,
       title: title.trim(),
@@ -162,27 +175,64 @@ function QuestionFormContent() {
       output_format: outputFormat,
       constraints: constraints.split('\n').filter(Boolean),
       tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
-      sample_count: testcases.filter((tc) => !tc.is_hidden).length,
-      hidden_count: testcases.filter((tc) => tc.is_hidden).length,
+      testcases: validTestcases,
+      sample_count: validTestcases.filter((tc) => !tc.is_hidden).length,
+      hidden_count: validTestcases.filter((tc) => tc.is_hidden).length,
       is_published: true,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
 
-    // 1. Persist to Supabase if connection is active
+    // 1. Save question and testcase rows directly to Supabase Database tables
     try {
       if (editId) {
-        await supabase.from('questions').update(questionObj).eq('id', editId);
+        await supabase.from('questions').update({
+          title: questionObj.title,
+          title_slug: questionObj.title_slug,
+          description: questionObj.description,
+          difficulty: questionObj.difficulty,
+          input_format: questionObj.input_format,
+          output_format: questionObj.output_format,
+          constraints: questionObj.constraints,
+          tags: questionObj.tags,
+        }).eq('id', editId);
+
+        // Delete previous testcases in Supabase for editId
+        await supabase.from('testcases').delete().eq('question_id', editId);
       } else {
-        await supabase.from('questions').insert([questionObj]);
+        const { data: insertedQ } = await supabase.from('questions').insert([{
+          title: questionObj.title,
+          title_slug: questionObj.title_slug,
+          description: questionObj.description,
+          difficulty: questionObj.difficulty,
+          input_format: questionObj.input_format,
+          output_format: questionObj.output_format,
+          constraints: questionObj.constraints,
+          tags: questionObj.tags,
+        }]).select().single();
+
+        if (insertedQ?.id) {
+          questionObj.id = insertedQ.id;
+        }
+      }
+
+      // Insert fresh testcase rows into Supabase testcases table
+      if (validTestcases.length > 0) {
+        const testcaseRows = validTestcases.map((tc) => ({
+          question_id: questionObj.id,
+          input: tc.input,
+          expected_output: tc.expected_output,
+          is_hidden: tc.is_hidden,
+        }));
+        await supabase.from('testcases').insert(testcaseRows);
       }
     } catch (err) {
-      console.warn('Supabase DB save notice:', err);
+      console.warn('Supabase DB testcases save notice:', err);
     }
 
     // 2. Persist to custom_questions in localStorage for permanent page reload persistence
     const customQuestions: any[] = JSON.parse(localStorage.getItem('custom_questions') || '[]');
-    const existingIdx = customQuestions.findIndex((q) => q.id === qId);
+    const existingIdx = customQuestions.findIndex((q) => q.id === qId || q.id === questionObj.id);
     if (existingIdx >= 0) {
       customQuestions[existingIdx] = questionObj;
     } else {
@@ -190,7 +240,7 @@ function QuestionFormContent() {
     }
     localStorage.setItem('custom_questions', JSON.stringify(customQuestions));
 
-    setSuccessMsg(editId ? 'Question updated successfully!' : 'New question published successfully!');
+    setSuccessMsg(editId ? 'Question & Testcases updated successfully!' : 'New Question & Testcases published successfully!');
     setTimeout(() => {
       setLoading(false);
       router.push('/admin/questions');
@@ -384,7 +434,7 @@ function QuestionFormContent() {
                       rows={2}
                       value={tc.input}
                       onChange={(e) => updateTestcase(idx, 'input', e.target.value)}
-                      placeholder="e.g. 4\n2 7 11 15\n9"
+                      placeholder="Enter custom input for this question..."
                       className="w-full bg-[#131b2e] border border-[#3c4a42] rounded p-2 text-xs text-[#dbe2fd] font-mono"
                     />
                   </div>
@@ -395,7 +445,7 @@ function QuestionFormContent() {
                       rows={2}
                       value={tc.expected_output}
                       onChange={(e) => updateTestcase(idx, 'expected_output', e.target.value)}
-                      placeholder="e.g. 0 1"
+                      placeholder="Enter expected output..."
                       className="w-full bg-[#131b2e] border border-[#3c4a42] rounded p-2 text-xs text-[#dbe2fd] font-mono"
                     />
                   </div>
@@ -417,7 +467,7 @@ function QuestionFormContent() {
             ) : (
               <>
                 <Check className="w-4 h-4" />
-                <span>{editId ? 'Update Question' : 'Publish Question'}</span>
+                <span>{editId ? 'Update Question & Testcases' : 'Publish Question & Testcases'}</span>
               </>
             )}
           </button>
