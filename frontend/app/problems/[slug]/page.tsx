@@ -23,7 +23,7 @@ import {
   SendHorizontal
 } from 'lucide-react';
 
-// Comprehensive baseline dataset for all 6 catalog problems
+// Comprehensive baseline dataset for all 6 catalog problems with clean student starter templates
 const PROBLEMS_CATALOG: Record<string, any> = {
   'two-sum': {
     id: '1',
@@ -35,7 +35,7 @@ const PROBLEMS_CATALOG: Record<string, any> = {
 
 You may assume that each input would have **exactly one solution**, and you may not use the same element twice. You can return the answer in any order.`,
     inputFormat: 'Line 1: N (number of elements)\nLine 2: N space-separated integers\nLine 3: target integer',
-    outputFormat: 'Space-separated indices',
+    outputFormat: 'Space-separated indices (e.g. "0 1")',
     constraints: [
       '2 <= nums.length <= 10^4',
       '-10^9 <= nums[i] <= 10^9',
@@ -47,12 +47,46 @@ You may assume that each input would have **exactly one solution**, and you may 
       { input: '3\n3 2 4\n6', output: '1 2' },
     ],
     starterCode: {
-      python: `import sys\n\ndef solve():\n    lines = sys.stdin.read().split()\n    if not lines:\n        return\n    n = int(lines[0])\n    nums = [int(x) for x in lines[1:n+1]]\n    target = int(lines[n+1])\n\n    seen = {}\n    for i, num in enumerate(nums):\n        complement = target - num\n        if complement in seen:\n            print(f"{seen[complement]} {i}")\n            return\n        seen[num] = i\n\nif __name__ == '__main__':\n    solve()`,
-      cpp: `#include <iostream>\n#include <vector>\n#include <unordered_map>\nusing namespace std;\n\nint main() {\n    int n, target;\n    if (!(cin >> n)) return 0;\n    vector<int> nums(n);\n    for (int i = 0; i < n; i++) cin >> nums[i];\n    cin >> target;\n\n    unordered_map<int, int> seen;\n    for (int i = 0; i < n; i++) {\n        int complement = target - nums[i];\n        if (seen.count(complement)) {\n            cout << seen[complement] << " " << i << endl;\n            return 0;\n        }\n        seen[nums[i]] = i;\n    }\n    return 0;\n}`
+      python: `import sys
+
+def two_sum(nums, target):
+    # Write your solution here...
+    pass
+
+if __name__ == '__main__':
+    lines = sys.stdin.read().split()
+    if lines:
+        n = int(lines[0])
+        nums = [int(x) for x in lines[1:n+1]]
+        target = int(lines[n+1])
+        ans = two_sum(nums, target)
+        if ans:
+            print(f"{ans[0]} {ans[1]}")
+`,
+      cpp: `#include <iostream>
+#include <vector>
+using namespace std;
+
+void solve() {
+    int n, target;
+    if (!(cin >> n)) return;
+    vector<int> nums(n);
+    for (int i = 0; i < n; i++) cin >> nums[i];
+    cin >> target;
+
+    // Write your solution here...
+
+}
+
+int main() {
+    solve();
+    return 0;
+}
+`
     },
     solution: {
       hasSolution: true,
-      title: 'Official Solution — Hash Table (One-Pass)',
+      title: 'Official Editorial — Hash Table (One-Pass)',
       explanation: `### Approach: Hash Map Lookups\nMaintain a hash map storing value to index mapping. As we iterate through \`nums\`, check if \`target - nums[i]\` exists in the map.\n\n### Complexity\n- **Time Complexity:** $O(N)$\n- **Space Complexity:** $O(N)$`,
       pythonCode: `def twoSum(nums, target):\n    seen = {}\n    for i, num in enumerate(nums):\n        if target - num in seen:\n            return [seen[target - num], i]\n        seen[num] = i`,
       cppCode: `vector<int> twoSum(vector<int>& nums, int target) {\n    unordered_map<int, int> m;\n    for (int i = 0; i < nums.size(); i++) {\n        if (m.count(target - nums[i])) return {m[target - nums[i]], i};\n        m[nums[i]] = i;\n    }\n    return {};\n}`
@@ -81,12 +115,37 @@ An input string is valid if:
       { input: '(]', output: 'false' },
     ],
     starterCode: {
-      python: `import sys\n\ndef isValid(s):\n    stack = []\n    mapping = {')': '(', '}': '{', ']': '['}\n    for char in s:\n        if char in mapping:\n            top = stack.pop() if stack else '#'\n            if mapping[char] != top:\n                return False\n        else:\n            stack.append(char)\n    return not stack\n\nif __name__ == '__main__':\n    s = sys.stdin.read().strip()\n    print("true" if isValid(s) else "false")`,
-      cpp: `#include <iostream>\n#include <stack>\n#include <unordered_map>\n#include <string>\nusing namespace std;\n\nbool isValid(string s) {\n    stack<char> st;\n    unordered_map<char, char> m = {{')', '('}, {'}', '{'}, {']', '['}};\n    for (char c : s) {\n        if (m.count(c)) {\n            if (st.empty() || st.top() != m[c]) return false;\n            st.pop();\n        } else {\n            st.push(c);\n        }\n    }\n    return st.empty();\n}\n\nint main() {\n    string s;\n    if (cin >> s) {\n        cout << (isValid(s) ? "true" : "false") << endl;\n    }\n    return 0;\n}`
+      python: `import sys
+
+def is_valid(s):
+    # Write your solution here...
+    pass
+
+if __name__ == '__main__':
+    s = sys.stdin.read().strip()
+    print("true" if is_valid(s) else "false")
+`,
+      cpp: `#include <iostream>
+#include <string>
+using namespace std;
+
+bool isValid(string s) {
+    // Write your solution here...
+    return false;
+}
+
+int main() {
+    string s;
+    if (cin >> s) {
+        cout << (isValid(s) ? "true" : "false") << endl;
+    }
+    return 0;
+}
+`
     },
     solution: {
       hasSolution: true,
-      title: 'Official Solution — Stack Matching',
+      title: 'Official Editorial — Stack Matching',
       explanation: `### Approach: Stack\nUse a stack data structure to store opening brackets. When encountering a closing bracket, verify that it matches the top of the stack.\n\n### Complexity\n- **Time Complexity:** $O(N)$\n- **Space Complexity:** $O(N)$`,
       pythonCode: `def isValid(s: str) -> bool:\n    stack = []\n    lookup = {")": "(", "}": "{", "]": "["}\n    for c in s:\n        if c in lookup:\n            if not stack or stack[-1] != lookup[c]:\n                return False\n            stack.pop()\n        else:\n            stack.append(c)\n    return not stack`,
       cppCode: `bool isValid(string s) {\n    stack<char> st;\n    for (char c : s) {\n        if (c == '(' || c == '{' || c == '[') st.push(c);\n        else {\n            if (st.empty()) return false;\n            if (c == ')' && st.top() != '(') return false;\n            if (c == '}' && st.top() != '{') return false;\n            if (c == ']' && st.top() != '[') return false;\n            st.pop();\n        }\n    }\n    return st.empty();\n}`
@@ -106,12 +165,39 @@ An input string is valid if:
       { input: '2 4 3\n5 6 4', output: '7 0 8' }
     ],
     starterCode: {
-      python: `import sys\n\ndef solve():\n    lines = sys.stdin.read().strip().split('\\n')\n    l1 = [int(x) for x in lines[0].split()]\n    l2 = [int(x) for x in lines[1].split()]\n    carry = 0\n    res = []\n    i, j = 0, 0\n    while i < len(l1) or j < len(l2) or carry:\n        v1 = l1[i] if i < len(l1) else 0\n        v2 = l2[j] if j < len(l2) else 0\n        val = v1 + v2 + carry\n        carry = val // 10\n        res.append(str(val % 10))\n        i += 1; j += 1\n    print(" ".join(res))\n\nif __name__ == '__main__':\n    solve()`,
-      cpp: `#include <iostream>\n#include <vector>\nusing namespace std;\n\nint main() {\n    int a, b;\n    // Read input and compute sum with carry\n    cout << "7 0 8" << endl;\n    return 0;\n}`
+      python: `import sys
+
+def add_two_numbers(l1, l2):
+    # Write your solution here...
+    pass
+
+if __name__ == '__main__':
+    lines = sys.stdin.read().strip().split('\\n')
+    if len(lines) >= 2:
+        l1 = [int(x) for x in lines[0].split()]
+        l2 = [int(x) for x in lines[1].split()]
+        ans = add_two_numbers(l1, l2)
+        if ans:
+            print(" ".join(map(str, ans)))
+`,
+      cpp: `#include <iostream>
+#include <vector>
+using namespace std;
+
+void solve() {
+    // Write your solution here...
+
+}
+
+int main() {
+    solve();
+    return 0;
+}
+`
     },
     solution: {
       hasSolution: true,
-      title: 'Official Solution — Elementary Addition with Carry',
+      title: 'Official Editorial — Elementary Addition with Carry',
       explanation: `Simulate digit-by-digit addition from left to right while keeping track of carry.`,
       pythonCode: ``, cppCode: ``
     }
@@ -128,12 +214,37 @@ An input string is valid if:
     constraints: ['0 <= s.length <= 5 * 10^4'],
     sampleCases: [{ input: 'abcabcbb', output: '3' }],
     starterCode: {
-      python: `import sys\n\ndef lengthOfLongestSubstring(s):\n    char_map = {}\n    left = 0\n    max_len = 0\n    for right, char in enumerate(s):\n        if char in char_map and char_map[char] >= left:\n            left = char_map[char] + 1\n        char_map[char] = right\n        max_len = max(max_len, right - left + 1)\n    return max_len\n\nif __name__ == '__main__':\n    s = sys.stdin.read().strip()\n    print(lengthOfLongestSubstring(s))`,
-      cpp: `#include <iostream>\n#include <string>\n#include <unordered_map>\nusing namespace std;\n\nint main() {\n    string s;\n    if (cin >> s) {\n        unordered_map<char, int> m;\n        int max_len = 0, left = 0;\n        for (int right = 0; right < s.length(); right++) {\n            if (m.count(s[right]) && m[s[right]] >= left) left = m[s[right]] + 1;\n            m[s[right]] = right;\n            max_len = max(max_len, right - left + 1);\n        }\n        cout << max_len << endl;\n    }\n    return 0;\n}`
+      python: `import sys
+
+def length_of_longest_substring(s):
+    # Write your solution here...
+    return 0
+
+if __name__ == '__main__':
+    s = sys.stdin.read().strip()
+    print(length_of_longest_substring(s))
+`,
+      cpp: `#include <iostream>
+#include <string>
+using namespace std;
+
+int lengthOfLongestSubstring(string s) {
+    // Write your solution here...
+    return 0;
+}
+
+int main() {
+    string s;
+    if (cin >> s) {
+        cout << lengthOfLongestSubstring(s) << endl;
+    }
+    return 0;
+}
+`
     },
     solution: {
       hasSolution: true,
-      title: 'Official Solution — Sliding Window',
+      title: 'Official Editorial — Sliding Window',
       explanation: `Use a sliding window with two pointers \`left\` and \`right\` and a hash map of last seen indices.`,
       pythonCode: ``, cppCode: ``
     }
@@ -150,12 +261,42 @@ An input string is valid if:
     constraints: ['n == height.length', '1 <= n <= 2 * 10^4'],
     sampleCases: [{ input: '12\n0 1 0 2 1 0 1 3 2 1 2 1', output: '6' }],
     starterCode: {
-      python: `import sys\n\ndef trap(height):\n    left, right = 0, len(height) - 1\n    left_max, right_max = 0, 0\n    water = 0\n    while left < right:\n        if height[left] < height[right]:\n            if height[left] >= left_max:\n                left_max = height[left]\n            else:\n                water += left_max - height[left]\n            left += 1\n        else:\n            if height[right] >= right_max:\n                right_max = height[right]\n            else:\n                water += right_max - height[right]\n            right -= 1\n    return water\n\nif __name__ == '__main__':\n    lines = sys.stdin.read().split()\n    if lines:\n        n = int(lines[0])\n        h = [int(x) for x in lines[1:n+1]]\n        print(trap(h))`,
-      cpp: `#include <iostream>\n#include <vector>\nusing namespace std;\n\nint main() {\n    int n;\n    if (cin >> n) {\n        vector<int> h(n);\n        for(int i=0; i<n; i++) cin >> h[i];\n        int l = 0, r = n - 1, l_max = 0, r_max = 0, water = 0;\n        while (l < r) {\n            if (h[l] < h[r]) {\n                if (h[l] >= l_max) l_max = h[l];\n                else water += l_max - h[l];\n                l++;\n            } else {\n                if (h[r] >= r_max) r_max = h[r];\n                else water += r_max - h[r];\n                r--;\n            }\n        }\n        cout << water << endl;\n    }\n    return 0;\n}`
+      python: `import sys
+
+def trap(height):
+    # Write your solution here...
+    return 0
+
+if __name__ == '__main__':
+    lines = sys.stdin.read().split()
+    if lines:
+        n = int(lines[0])
+        h = [int(x) for x in lines[1:n+1]]
+        print(trap(h))
+`,
+      cpp: `#include <iostream>
+#include <vector>
+using namespace std;
+
+int trap(vector<int>& height) {
+    // Write your solution here...
+    return 0;
+}
+
+int main() {
+    int n;
+    if (cin >> n) {
+        vector<int> h(n);
+        for (int i = 0; i < n; i++) cin >> h[i];
+        cout << trap(h) << endl;
+    }
+    return 0;
+}
+`
     },
     solution: {
       hasSolution: true,
-      title: 'Official Solution — Two Pointers',
+      title: 'Official Editorial — Two Pointers',
       explanation: `Use two pointers moving inward from both ends to calculate bounded water height.`,
       pythonCode: ``, cppCode: ``
     }
@@ -172,12 +313,34 @@ An input string is valid if:
     constraints: ['k == lists.length', '0 <= k <= 10^4'],
     sampleCases: [{ input: '3\n1 4 5\n1 3 4\n2 6', output: '1 1 2 3 4 4 5 6' }],
     starterCode: {
-      python: `import sys, heapq\n\ndef solve():\n    lines = sys.stdin.read().strip().split('\\n')\n    if not lines or not lines[0]: return\n    k = int(lines[0])\n    heap = []\n    for i in range(1, len(lines)):\n        for val in map(int, lines[i].split()):\n            heapq.heappush(heap, val)\n    res = []\n    while heap:\n        res.append(str(heapq.heappop(heap)))\n    print(" ".join(res))\n\nif __name__ == '__main__':\n    solve()`,
-      cpp: `#include <iostream>\n#include <vector>\n#include <queue>\nusing namespace std;\n\nint main() {\n    int k;\n    if (cin >> k) {\n        priority_queue<int, vector<int>, greater<int>> pq;\n        int val;\n        while (cin >> val) pq.push(val);\n        while (!pq.empty()) {\n            cout << pq.top() << " ";\n            pq.pop();\n        }\n        cout << endl;\n    }\n    return 0;\n}`
+      python: `import sys
+
+def merge_k_lists(lists):
+    # Write your solution here...
+    pass
+
+if __name__ == '__main__':
+    lines = sys.stdin.read().strip().split('\\n')
+    # Parse input and call merge_k_lists
+`,
+      cpp: `#include <iostream>
+#include <vector>
+using namespace std;
+
+void solve() {
+    // Write your solution here...
+
+}
+
+int main() {
+    solve();
+    return 0;
+}
+`
     },
     solution: {
       hasSolution: true,
-      title: 'Official Solution — Min Heap Priority Queue',
+      title: 'Official Editorial — Min Heap Priority Queue',
       explanation: `Maintain a min-heap to pick the smallest current element among k lists.`,
       pythonCode: ``, cppCode: ``
     }
@@ -205,7 +368,7 @@ export default function ProblemDetailPage({ params }: { params: Promise<{ slug: 
   const supabase = createClient();
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
-  // Update starter code when language or problem changes
+  // Update starter code template when language or problem changes
   useEffect(() => {
     if (problem.starterCode) {
       if (language === 'python' && problem.starterCode.python) {
@@ -510,7 +673,7 @@ export default function ProblemDetailPage({ params }: { params: Promise<{ slug: 
 
                   {problem.solution.pythonCode && (
                     <div className="space-y-3">
-                      <h4 className="text-xs font-mono font-bold text-[#10b981] uppercase tracking-wider">Python 3 Implementation</h4>
+                      <h4 className="text-xs font-mono font-bold text-[#10b981] uppercase tracking-wider">Python 3 Reference Solution</h4>
                       <pre className="p-4 bg-[#131b2e] border border-[#1f2937] rounded text-xs font-mono text-[#4edea3] overflow-x-auto">
                         <code>{problem.solution.pythonCode}</code>
                       </pre>
@@ -519,7 +682,7 @@ export default function ProblemDetailPage({ params }: { params: Promise<{ slug: 
 
                   {problem.solution.cppCode && (
                     <div className="space-y-3">
-                      <h4 className="text-xs font-mono font-bold text-[#10b981] uppercase tracking-wider">C++ (GCC 9.2) Implementation</h4>
+                      <h4 className="text-xs font-mono font-bold text-[#10b981] uppercase tracking-wider">C++ (GCC 9.2) Reference Solution</h4>
                       <pre className="p-4 bg-[#131b2e] border border-[#1f2937] rounded text-xs font-mono text-[#4edea3] overflow-x-auto">
                         <code>{problem.solution.cppCode}</code>
                       </pre>
