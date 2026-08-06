@@ -22,7 +22,7 @@ import { Question, Difficulty } from '@/types';
 import ProblemFiltersModal, { FilterState } from '@/components/ProblemFiltersModal';
 
 export default function Home() {
-  const [problems, setProblems] = useState<Question[]>([]);
+  const [problems, setProblems] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [user, setUser] = useState<any>(null);
   const [userRole, setUserRole] = useState<string>('LEARNER');
@@ -40,17 +40,28 @@ export default function Home() {
 
   const supabase = createClient();
 
-  // Dynamically load active questions exclusively from Supabase DB
+  // Dynamically load active questions & submission counts exclusively from Supabase DB
   useEffect(() => {
     const loadDynamicQuestions = async () => {
       setLoadingProblems(true);
       const { data: dbData, error } = await supabase
         .from('questions')
-        .select('*')
+        .select('*, submissions(question_id, verdict)')
         .order('created_at', { ascending: true });
 
       if (!error && dbData) {
-        setProblems(dbData);
+        const processed = dbData.map((q: any) => {
+          const totalSubs = q.submissions ? q.submissions.length : 0;
+          const acceptedSubs = q.submissions ? q.submissions.filter((s: any) => s.verdict === 'ACCEPTED').length : 0;
+          const accRate = totalSubs > 0 ? ((acceptedSubs / totalSubs) * 100).toFixed(1) + '%' : 'N/A';
+          return {
+            ...q,
+            total_submissions: totalSubs,
+            accepted_submissions: acceptedSubs,
+            acceptance_rate: accRate,
+          };
+        });
+        setProblems(processed);
       } else {
         setProblems([]);
       }
@@ -116,7 +127,7 @@ export default function Home() {
     const tagSet = new Set<string>();
     problems.forEach((prob) => {
       if (Array.isArray(prob.tags)) {
-        prob.tags.forEach((t) => {
+        prob.tags.forEach((t: string) => {
           if (t && t.trim()) tagSet.add(t.trim());
         });
       }
@@ -131,7 +142,7 @@ export default function Home() {
       const matchesSearch = 
         prob.title.toLowerCase().includes(search.toLowerCase()) ||
         prob.title_slug.toLowerCase().includes(search.toLowerCase()) ||
-        (prob.tags && prob.tags.some((t) => t.toLowerCase().includes(search.toLowerCase())));
+        (prob.tags && prob.tags.some((t: string) => t.toLowerCase().includes(search.toLowerCase())));
 
       if (!matchesSearch) return false;
 
@@ -147,7 +158,7 @@ export default function Home() {
 
       // 4. Topic Tags Filter (text[] array)
       if (filters.selectedTags.length > 0) {
-        const probTags = (prob.tags || []).map((t) => t.trim().toLowerCase());
+        const probTags = (prob.tags || []).map((t: string) => t.trim().toLowerCase());
         if (filters.matchMode === 'ALL') {
           const matchAll = filters.selectedTags.every((st) => probTags.includes(st.toLowerCase()));
           if (!matchAll) return false;
@@ -266,7 +277,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Filters & Search Toolbar — Filters Button Placed Immediately Next to Search Bar */}
+        {/* Filters & Search Toolbar */}
         <div className="flex flex-wrap items-center gap-3 bg-[#131b2e] p-4 rounded border border-[#1f2937]">
           <div className="w-full md:w-96 relative">
             <Search className="w-4 h-4 text-[#bbcabf] absolute left-3 top-3" />
@@ -329,6 +340,7 @@ export default function Home() {
                   <th className="py-3.5 px-6">Status</th>
                   <th className="py-3.5 px-6">Title</th>
                   <th className="py-3.5 px-6">Difficulty</th>
+                  <th className="py-3.5 px-6">Acceptance Rate</th>
                   <th className="py-3.5 px-6">Tags</th>
                   <th className="py-3.5 px-6 text-right">Action</th>
                 </tr>
@@ -336,13 +348,13 @@ export default function Home() {
               <tbody className="divide-y divide-[#1f2937]/60 font-mono">
                 {loadingProblems ? (
                   <tr>
-                    <td colSpan={5} className="py-12 text-center text-[#bbcabf] animate-pulse">
+                    <td colSpan={6} className="py-12 text-center text-[#bbcabf] animate-pulse">
                       Loading live problems from database...
                     </td>
                   </tr>
                 ) : filteredProblems.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-12 text-center text-[#bbcabf]">
+                    <td colSpan={6} className="py-12 text-center text-[#bbcabf]">
                       No problems found matching your active filter criteria.
                     </td>
                   </tr>
@@ -372,9 +384,13 @@ export default function Home() {
                             {prob.difficulty}
                           </span>
                         </td>
+                        <td className="py-4 px-6 text-[#bbcabf]">
+                          <span className="text-[#10b981] font-bold">{prob.acceptance_rate}</span>{' '}
+                          <span className="text-[10px] text-[#bbcabf]/60">({prob.total_submissions || 0} subs)</span>
+                        </td>
                         <td className="py-4 px-6">
                           <div className="flex flex-wrap gap-1">
-                            {prob.tags && prob.tags.map((t) => (
+                            {prob.tags && prob.tags.map((t: string) => (
                               <span key={t} className="px-1.5 py-0.5 rounded bg-[#0b1326] text-[#bbcabf] border border-[#3c4a42] text-[10px]">
                                 {t}
                               </span>

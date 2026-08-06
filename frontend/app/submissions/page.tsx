@@ -4,14 +4,13 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
-import { Terminal, CheckCircle2, XCircle, Clock, FileCode, AlertCircle } from 'lucide-react';
-import { Submission, Verdict } from '@/types';
+import { Terminal, CheckCircle2, XCircle, Clock, FileCode, ExternalLink, AlertOctagon, AlertTriangle } from 'lucide-react';
+import { Verdict } from '@/types';
 
 export default function SubmissionsHistoryPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [submissions, setSubmissions] = useState<Submission[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [submissions, setSubmissions] = useState<any[]>([]);
   const supabase = createClient();
 
   useEffect(() => {
@@ -23,16 +22,15 @@ export default function SubmissionsHistoryPage() {
         return;
       }
 
-      // 2. Query user's real submissions from Supabase 'submissions' table
+      // 2. Query user's real submissions from Supabase 'submissions' table joined with 'questions'
       const { data, error: fetchError } = await supabase
         .from('submissions')
-        .select('*')
+        .select('*, questions(title, title_slug)')
         .eq('user_id', session.user.id)
         .order('created_at', { ascending: false });
 
       if (fetchError) {
-        console.warn('Could not fetch submissions from DB (tables may not be created yet):', fetchError.message);
-        // Graceful fallback to empty array
+        console.warn('Could not fetch submissions from DB:', fetchError.message);
         setSubmissions([]);
       } else {
         setSubmissions(data || []);
@@ -75,6 +73,18 @@ export default function SubmissionsHistoryPage() {
             <Clock className="w-3 h-3" /> TLE
           </span>
         );
+      case 'COMPILATION_ERROR':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-[#3b0914] text-[#f87171] border border-[#7f1d1d] font-mono font-bold text-[10px]">
+            <AlertOctagon className="w-3 h-3" /> COMPILATION ERROR
+          </span>
+        );
+      case 'RUNTIME_ERROR':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-[#3b0914] text-[#f87171] border border-[#7f1d1d] font-mono font-bold text-[10px]">
+            <AlertTriangle className="w-3 h-3" /> RUNTIME ERROR
+          </span>
+        );
       default:
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-[#171f33] text-[#dbe2fd] font-mono font-bold text-[10px]">
@@ -99,11 +109,11 @@ export default function SubmissionsHistoryPage() {
           </Link>
         </div>
 
-        <div className="flex items-center space-x-4">
-          <Link href="/" className="text-xs font-mono text-[#bbcabf] hover:text-[#10b981] transition-colors">
+        <div className="flex items-center space-x-4 font-mono">
+          <Link href="/" className="text-xs text-[#bbcabf] hover:text-[#10b981] transition-colors">
             Problemset
           </Link>
-          <Link href="/dashboard" className="text-xs font-mono text-[#bbcabf] hover:text-[#10b981] transition-colors">
+          <Link href="/dashboard" className="text-xs text-[#bbcabf] hover:text-[#10b981] transition-colors">
             Dashboard
           </Link>
         </div>
@@ -131,6 +141,7 @@ export default function SubmissionsHistoryPage() {
               <table className="w-full text-left text-xs text-[#dbe2fd]">
                 <thead className="bg-[#171f33] border-b border-[#1f2937] font-mono text-[11px] text-[#bbcabf] uppercase tracking-wider">
                   <tr>
+                    <th className="py-3.5 px-6">Problem</th>
                     <th className="py-3.5 px-6">Verdict</th>
                     <th className="py-3.5 px-6">Language</th>
                     <th className="py-3.5 px-6">Execution Time</th>
@@ -141,6 +152,19 @@ export default function SubmissionsHistoryPage() {
                 <tbody className="divide-y divide-[#1f2937]/60 font-mono">
                   {submissions.map((sub) => (
                     <tr key={sub.id} className="hover:bg-[#171f33] transition-colors">
+                      <td className="py-4 px-6 font-bold text-[#dbe2fd]">
+                        {sub.questions?.title_slug ? (
+                          <Link
+                            href={`/problems/${sub.questions.title_slug}`}
+                            className="hover:text-[#10b981] inline-flex items-center gap-1 transition-colors"
+                          >
+                            <span>{sub.questions.title}</span>
+                            <ExternalLink className="w-3 h-3 text-[#bbcabf]" />
+                          </Link>
+                        ) : (
+                          sub.questions?.title || 'Problem'
+                        )}
+                      </td>
                       <td className="py-4 px-6">
                         {getVerdictBadge(sub.verdict)}
                       </td>

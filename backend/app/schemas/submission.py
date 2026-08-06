@@ -37,6 +37,9 @@ class SubmitCodeResponse(BaseModel):
     execution_time_ms: int
     memory_kb: int
     error_message: Optional[str] = None
+    compile_output: Optional[str] = None
+    stderr: Optional[str] = None
+    stdout: Optional[str] = None
 
 class SubmissionListItemResponse(BaseModel):
     id: UUID

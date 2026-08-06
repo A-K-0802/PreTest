@@ -10,8 +10,9 @@ import {
   CheckCircle2, 
   PlusCircle, 
   ArrowUpRight,
-  Activity,
-  Terminal
+  MessageSquare,
+  Flag,
+  Sparkles
 } from 'lucide-react';
 
 export default function AdminOverviewPage() {
@@ -23,10 +24,10 @@ export default function AdminOverviewPage() {
     hardCount: 0,
     totalLearners: 0,
     totalSubmissions: 0,
+    totalComments: 0,
+    flaggedCommentsCount: 0,
     passRate: '0.0%',
   });
-
-  const [recentSubmissions, setRecentSubmissions] = useState<any[]>([]);
 
   const supabase = createClient();
 
@@ -51,15 +52,27 @@ export default function AdminOverviewPage() {
         }
 
         // 2. Fetch real active learners from 'profiles' table
-        const { count: learnersCount, error: pErr } = await supabase
+        const { count: learnersCount } = await supabase
           .from('profiles')
           .select('*', { count: 'exact', head: true });
 
-        // 3. Fetch real submissions and calculate acceptance pass rate
+        // 3. Fetch total & flagged discussion comments from 'comments' table
+        const { data: commentsData } = await supabase
+          .from('comments')
+          .select('id, is_flagged');
+
+        let totalComments = 0;
+        let flaggedCount = 0;
+
+        if (commentsData) {
+          totalComments = commentsData.length;
+          flaggedCount = commentsData.filter((c: any) => c.is_flagged).length;
+        }
+
+        // 4. Fetch real submissions and calculate acceptance pass rate
         const { data: subsData, error: sErr } = await supabase
           .from('submissions')
-          .select('*, profiles(username), questions(title)')
-          .order('created_at', { ascending: false });
+          .select('verdict');
 
         let subsCount = 0;
         let acceptedCount = 0;
@@ -67,7 +80,6 @@ export default function AdminOverviewPage() {
         if (!sErr && subsData) {
           subsCount = subsData.length;
           acceptedCount = subsData.filter((s: any) => s.verdict === 'ACCEPTED').length;
-          setRecentSubmissions(subsData.slice(0, 5));
         }
 
         const calculatedPassRate = subsCount > 0 
@@ -81,6 +93,8 @@ export default function AdminOverviewPage() {
           hardCount: hardQ,
           totalLearners: learnersCount || 0,
           totalSubmissions: subsCount,
+          totalComments,
+          flaggedCommentsCount: flaggedCount,
           passRate: calculatedPassRate,
         });
       } catch (err) {
@@ -100,7 +114,7 @@ export default function AdminOverviewPage() {
         <div>
           <h1 className="text-2xl font-bold text-[#dbe2fd] tracking-tight">System Overview Dashboard</h1>
           <p className="text-xs font-mono text-[#bbcabf] mt-1">
-            Real-time analytics across questions, student activity, and Judge0 submissions.
+            Real-time administrative analytics across question bank, discussions, and learner stats.
           </p>
         </div>
 
@@ -155,23 +169,25 @@ export default function AdminOverviewPage() {
           </div>
         </div>
 
-        {/* Card 3: Submissions Total */}
+        {/* Card 3: Discussions & Flagged Comments */}
         <div className="bg-[#131b2e] border border-[#1f2937] p-5 rounded relative overflow-hidden font-mono">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-[#bbcabf] font-semibold uppercase tracking-wider">Total Submissions</span>
+            <span className="text-xs text-[#bbcabf] font-semibold uppercase tracking-wider">Discussions</span>
             <div className="p-2 rounded bg-[#003824] text-[#10b981] border border-[#005236]">
-              <Code2 className="w-4 h-4" />
+              <MessageSquare className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-4 flex items-baseline justify-between">
-            <span className="text-3xl font-bold text-[#dbe2fd]">{loading ? '...' : stats.totalSubmissions}</span>
-            <span className="text-[10px] text-[#10b981]">Judge0 Sandbox</span>
+            <span className="text-3xl font-bold text-[#dbe2fd]">{loading ? '...' : stats.totalComments}</span>
+            <span className="text-[10px] text-[#f59e0b] font-bold">
+              🚩 {stats.flaggedCommentsCount} Flagged
+            </span>
           </div>
           <Link
-            href="/submissions"
+            href="/admin/comments"
             className="mt-3 text-[11px] text-[#10b981] hover:underline flex items-center gap-1 inline-block"
           >
-            <span>View Submissions Log</span>
+            <span>Moderate Question Discussions</span>
             <ArrowUpRight className="w-3 h-3" />
           </Link>
         </div>
@@ -186,7 +202,7 @@ export default function AdminOverviewPage() {
           </div>
           <div className="mt-4 flex items-baseline justify-between">
             <span className="text-3xl font-bold text-[#10b981]">{loading ? '...' : stats.passRate}</span>
-            <span className="text-[10px] text-[#bbcabf]">ACCEPTED</span>
+            <span className="text-[10px] text-[#bbcabf]">({stats.totalSubmissions} Subs)</span>
           </div>
           <div className="mt-3 text-[11px] text-[#bbcabf] flex items-center gap-1">
             <span>Overall Platform Score</span>
@@ -194,43 +210,15 @@ export default function AdminOverviewPage() {
         </div>
       </div>
 
-      {/* Recent Submissions Feed */}
-      <div className="bg-[#131b2e] border border-[#1f2937] rounded overflow-hidden p-6 space-y-4">
-        <div className="flex items-center justify-between border-b border-[#1f2937] pb-3">
-          <h3 className="text-sm font-bold text-[#dbe2fd] font-mono flex items-center gap-2">
-            <Activity className="w-4 h-4 text-[#10b981]" />
-            Recent Judge0 Submissions Feed
-          </h3>
-          <Link href="/submissions" className="text-xs font-mono text-[#10b981] hover:underline">
-            View All
-          </Link>
+      {/* Admin Quick Action Banner */}
+      <div className="bg-[#131b2e] border border-[#1f2937] rounded p-6 font-mono space-y-3">
+        <div className="flex items-center space-x-2 text-[#10b981] font-bold text-xs uppercase tracking-wider">
+          <Sparkles className="w-4 h-4" />
+          <span>Admin Workspace Control</span>
         </div>
-
-        <div className="space-y-3 font-mono text-xs">
-          {loading ? (
-            <div className="text-center py-6 text-[#bbcabf] animate-pulse">Loading live submission logs...</div>
-          ) : recentSubmissions.length === 0 ? (
-            <div className="text-center py-6 text-[#bbcabf]">No submissions logged yet.</div>
-          ) : (
-            recentSubmissions.map((sub, i) => (
-              <div key={sub.id || i} className="p-3 bg-[#0b1326] border border-[#1f2937] rounded flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <span className={`w-2 h-2 rounded-full ${sub.verdict === 'ACCEPTED' ? 'bg-[#10b981]' : 'bg-[#f87171]'}`}></span>
-                  <div>
-                    <div className="font-bold text-[#dbe2fd]">{sub.questions?.title || 'Question Solution'}</div>
-                    <div className="text-[10px] text-[#bbcabf]">By {sub.profiles?.username || 'Learner'} · {sub.language}</div>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${sub.verdict === 'ACCEPTED' ? 'bg-[#003824] text-[#10b981] border border-[#005236]' : 'bg-[#3b0914] text-[#f87171] border border-[#7f1d1d]'}`}>
-                    {sub.verdict}
-                  </span>
-                  <div className="text-[10px] text-[#bbcabf]/60 mt-0.5">{new Date(sub.created_at).toLocaleTimeString()}</div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+        <p className="text-xs text-[#bbcabf] leading-relaxed">
+          Manage questions, review community discussions grouped question-wise, and flag important posts or issue reports directly from the <Link href="/admin/comments" className="text-[#10b981] hover:underline">Discussion Moderator</Link>.
+        </p>
       </div>
     </div>
   );

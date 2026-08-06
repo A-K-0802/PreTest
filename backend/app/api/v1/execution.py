@@ -35,11 +35,11 @@ async def run_code(request: RunCodeRequest):
 
     return RunCodeResponse(
         verdict=result["verdict"],
-        stdout=result["stdout"],
-        stderr=result["stderr"],
-        compile_output=result["compile_output"],
-        execution_time_ms=result["execution_time_ms"],
-        memory_kb=result["memory_kb"],
+        stdout=result.get("stdout") or "",
+        stderr=result.get("stderr") or "",
+        compile_output=result.get("compile_output") or "",
+        execution_time_ms=result.get("execution_time_ms") or 0,
+        memory_kb=result.get("memory_kb") or 0,
     )
 
 
@@ -93,11 +93,12 @@ async def submit_code(
             is_hid = c_tc.get("is_hidden", False)
             testcase_objects.append(Testcase(input=str(inp), expected_output=str(out), is_hidden=is_hid))
 
-    # 3. Fallback: If still empty, raise 404 or provide default
+    # 3. Validation: Raise 400 error if no testcases exist for this question
     if not testcase_objects:
-        testcase_objects = [
-            Testcase(input="4\n2 7 11 15\n9", expected_output="0 1", is_hidden=False),
-        ]
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No testcases available in database for this question. Please add testcases via Admin Panel."
+        )
 
     passed_count = 0
     total_count = len(testcase_objects)
@@ -105,6 +106,9 @@ async def submit_code(
     max_time_ms = 0
     max_memory_kb = 0
     error_msg = None
+    failed_compile_output = None
+    failed_stderr = None
+    failed_stdout = None
 
     for tc in testcase_objects:
         exec_result = await judge0_service.execute_code(
@@ -114,8 +118,8 @@ async def submit_code(
             expected_output=tc.expected_output,
         )
 
-        max_time_ms = max(max_time_ms, exec_result["execution_time_ms"])
-        max_memory_kb = max(max_memory_kb, exec_result["memory_kb"])
+        max_time_ms = max(max_time_ms, exec_result.get("execution_time_ms") or 0)
+        max_memory_kb = max(max_memory_kb, exec_result.get("memory_kb") or 0)
 
         verdict = exec_result["verdict"]
 
@@ -123,7 +127,20 @@ async def submit_code(
             passed_count += 1
         else:
             final_verdict = verdict
-            error_msg = exec_result["stderr"] or exec_result["compile_output"] or f"Failed on testcase input:\n{tc.input}"
+            failed_compile_output = exec_result.get("compile_output") or ""
+            failed_stderr = exec_result.get("stderr") or ""
+            failed_stdout = exec_result.get("stdout") or ""
+
+            if verdict == VerdictEnum.COMPILATION_ERROR:
+                error_msg = failed_compile_output or failed_stderr or "Compilation Error: Please check code syntax."
+            elif verdict == VerdictEnum.TIME_LIMIT_EXCEEDED:
+                error_msg = "Time Limit Exceeded: Code execution exceeded max CPU time limit (2.0s)."
+            elif verdict == VerdictEnum.RUNTIME_ERROR:
+                error_msg = failed_stderr or failed_stdout or "Runtime Error: An unhandled exception or crash occurred."
+            elif verdict == VerdictEnum.WRONG_ANSWER:
+                error_msg = f"Wrong Answer on testcase:\nInput:\n{tc.input}\n\nYour Output:\n{failed_stdout or '(Empty)'}\n\nExpected Output:\n{tc.expected_output}"
+            else:
+                error_msg = failed_stderr or failed_compile_output or f"Failed on testcase input:\n{tc.input}"
             break  # Stop execution on first failing testcase
 
     submission_id = uuid.uuid4()
@@ -156,25 +173,7 @@ async def submit_code(
         execution_time_ms=max_time_ms,
         memory_kb=max_memory_kb,
         error_message=error_msg,
+        compile_output=failed_compile_output,
+        stderr=failed_stderr,
+        stdout=failed_stdout,
     )
-
-
-@router.get("/submissions", response_model=List[SubmissionListItemResponse])
-async def list_user_submissions(
-    db: Session = Depends(get_db),
-    current_user: UserSession = Depends(get_current_user),
-):
-    """
-    Authenticated Endpoint: Returns submission history for the logged in user.
-    """
-    try:
-        submissions = (
-            db.query(Submission)
-            .filter(Submission.user_id == UUID(current_user.user_id))
-            .order_by(Submission.created_at.desc())
-            .all()
-        )
-        return submissions
-    except Exception:
-        db.rollback()
-        return []
